@@ -1,0 +1,11 @@
+service telnet
+{
+    flags           = REUSE
+    socket_type     = stream
+    wait            = no
+    user            = root
+    server          = /usr/sbin/telnetd
+    log_on_failure += USERID HOST ATTEMPT
+    log_type        = FILE /var/log/telnet_log_file.txt
+    disable         = no
+}

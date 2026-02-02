@@ -1,0 +1,17 @@
+__pycache__/
+.venv/
+.tmp/
+.git/
+old/
+old/.*
+captures/*.pcap
+features/*.csv
+datasets/*.csv
+models
+models/*.csv
+models/*.joblib
+NTLFlowLyzer/
+NTLFlowLyzer/.*
+/NTLFlowLyzer
+ds-orig.py
+docs/build
