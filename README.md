@@ -193,18 +193,138 @@ docker image ls -a --format table | grep 'sbrc26-'
 
 ### Operações do testbed:
 
-1. Verificar as macro categorias de ataques, selecionar ataques, verificar informações sobre os ataques e suas características
-2. Iniciar / Parar um ataque
-3. Verificar os logs do ataque
-4. Verificar os logs de um servidor alvo
-5. Operar os clientes benignos
-6. Verificar arquivos de captura de um ataque
-7. Extrair e visualizar arquivos de _features_ de capturas anteriores
-8. Gerar e visualizar datasets de ataques a partir de _features_ extraídas anteriormente
+#### Tela principal: Acessível em http://seu.endereço.ip:8501/
 
-Ver a demonstração completa da ferramenta.
+![assets/1.png](assets/1.png)
 
-## Demonstração completa do testbed e das reivindicações, utilizando o ambiente instalado manualmente (`Opção 2`)
+#### Funções da tela principal:
+
+![assets/2.png](assets/2.png)
+
+1. URL base da ferramental
+2. Status e visualização de logs dos servidores alvo
+3. Status e controles sobre os clientes benignos
+4. Menu de macro categorias dos ataques
+5. Menu de seleção de um ataque específico
+6. Detalhes do ataque selecionado (ID, Nome, Descrição, Imagem, Container e Categorização MITRE)
+7. Status e controles sobre a execução do ataque
+8. Parâmetros de execução do ataque (Endereço IP e Porta do alvo, quando aplicável) e seletor de captura de pacotes simultânea
+9. Menu de operações sobre capturas já realizadas
+
+#### Funções relativas aos logs dos servidores alvo:
+
+![assets/3.png](assets/3.png)
+
+1. Abertura da tela de logs de um servidor alvo
+2. Título da tela
+3. Função para forçar a atualização dos logs exibidos
+4. Seletor do número de linhas de logs para exibir (200 por padrão)
+5. Comando executado para a obtenção dos logs
+6. Exibição dos logs
+7. Botão para voltar a tela anterior
+
+#### Funções relativas controle dos clientes benignos:
+
+![assets/4.png](assets/4.png)
+
+1. Informação do número de clientes atualmente em execução (máximo de 10 para fins de demonstração)
+2. Botão para interromper a execução e remover todos os clientes benignos
+3. Botão para iniciar mais um cliente benigno (máximo de 10 para fins de demonstração)
+4. Informação adicional sobre os clientes benignos em execução
+
+#### Funções referentes a execução de um ataque:
+
+![assets/5.png](assets/5.png)
+
+1. Ataque específico selecionado
+2. Endereço IP do servidor alvo (tipicamente, utilizar as informações sugeridas e pré-preenchidas)
+3. Porta do servidor alvo (tipicamente, utilizar as informações sugeridas e pré-preenchidas)
+4. Seletor para capturar pacotes durante a execução do ataque
+5. Botão para iniciar o ataque
+6. Informação relativa ao arquivo de captura resultante (somente se ativado o seletor de captura)
+7. Informação sobre o comando efetivamente executado para a captura (somente se ativado o seletor de captura)
+8. ID da execução do container no Docker Engine
+9. Informação sobre o comando efetivamente executado no Docker Engine
+10. Botão para forçar a atualização do status da execução
+11. Botão para interromper imediatamente o container do atacante
+
+#### Funções referentes à manipulação de arquivos de captura:
+
+![assets/6.png](assets/6.png)
+
+1. Botão de acesso ao módulo de visualização e processamento dos arquivos de captura
+2. Nome do(s) arquivo(s) de captura armazenados no diretório `/captures`
+3. Tamanho do arquivo de captura
+4. Data de modificação do arquivo de captura
+5. Botão para efetuar o download do arquivo de captura
+6. Botão para acionar o módulo de extração de features
+
+#### Funções referentes ao módulo de extração de features de um arquivo de captura:
+
+![assets/7.png](assets/7.png)
+
+1. Nome do arquivo de captura selecionado
+2. Nome dos arquivos `.csv` previstos pós extração `/features`
+3. Seleção para extrair utilizando NTLFlowLyzer
+4. Seleção para extrair utilizando Dumpcap TShark
+5. Seleção para extrair utilizando Python Scapy
+6. Seletor para forçar a reescrita dos arquivos `.csv` caso estes já existam de processamento anterior
+7. Botão para a execução da extração das features conforme as opções selecionadas
+
+#### Tela de resumo do processamento de features:
+
+![assets/8.png](assets/8.png)
+
+1. Status da execução da extração com NTLFlowLyzer (somente se selecionado na tela anterior) e arquivo resultante salvo em `/features`
+2. Status da execução da extração com Dumpcap TShark (somente se selecionado na tela anterior) e arquivo resultante salvo em `/features`
+3. Status da execução da extração com Python Scapy (somente se selecionado na tela anterior) e arquivo resultante salvo em `/features`
+
+#### Funções referentes a pré-visualização das features extraídas e geração de dataset:
+
+![assets/9.png](assets/9.png)
+
+> Note que após um arquivo de captura ter features extraídas, são habilidados os botões adicionais
+1. Nome do arquivo de captura
+2. Botão para pré-visualização no navegador as features extraídas
+3. Botão para gerar dataset de fluxos consolidados da extração de features já realizada
+
+#### Tela de pré-visualização de features extraídas:
+
+![assets/10.png](assets/10.png)
+
+1. Arquivos referentes a extração e possíveis de serem visualizados
+2. Informação da fonte de cada arquivo `.csv`
+3. Botões para efetuar o download de cada arquivo `.csv` disponível
+4. Seletor da fonte de dados para a visualização
+5. Seletor do número de linhas para exibição (50 por padrão)
+6. Tabela de visualização da fonte de dados selecionada
+
+#### Geração de dataset de fluxos consolidados de extração de features já realizada:
+
+![assets/11.png](assets/11.png)
+
+1. Nome do arquivo de captura
+2. Botão para gerar o dataset em `datasets/`
+
+#### Função para pré-visualização de dataset gerado:
+
+![assets/12.png](assets/12.png)
+
+1. Seletor de pré-visualização de dataset
+
+#### Tela de pré-visualização de dataset gerado:
+
+![assets/13.png](assets/13.png)
+
+1. Nome dos arquivos de captura e features extraídos relativos ao dataset
+2. Botões para efetuar o download do arquivo `.csv` disponível
+3. Seletor do número de linhas para exibição (200 por padrão), máximo de colunas (80 por padrão) e campo de busca/filtragem
+4. Tabela de visualização do dataset
+
+---
+
+
+## Demonstração completa em vídeo do testbed e das reivindicações, utilizando o ambiente instalado manualmente (`Opção 2`)
 
 [![video-demonstracao-uso](https://img.youtube.com/vi/fx2Z5ZD_Rbo/0.jpg)](https://www.youtube.com/watch?v=fx2Z5ZD_Rbo)
 
