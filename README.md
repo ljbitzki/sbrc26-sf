@@ -73,7 +73,7 @@ Resumo dos pacotes adicionais necessários (dependências):
 | 1     | Nenhum pacote adicional                                                                              |
 | 2*    | Pacotes `ca-certificates curl`, `cmake`, `docker-ce`, `git`, `python3-venv`, `tcpdump` e `wireshark` |
 
-\* A instalação das dependências, ocorrerá automaticamente durante a execução dos instaladores, bastando seguir as instruções exibidas em tela.
+\* A instalação das dependências ocorrerá automaticamente durante a execução dos instaladores, bastando seguir as instruções exibidas em tela.
 
 ---
 
@@ -81,7 +81,7 @@ Resumo dos pacotes adicionais necessários (dependências):
 
 #### O testbed possui as seguintes preocupações com segurança:
 
- 1. O presente testbed tem propósito educacional e não deve ser utilizada para atacar endereços externos ao experimento. Para fins de demonstração, utilize o próprio IP desta máquina como alvo dos ataques (nos ataques diretos a um endereço IP. Nos ataques em nível de rede, utilize a rede docker0 (geralmente 172.17.0.0/16) ou sua rede local."
+ 1. O presente testbed tem propósito educacional e não deve ser utilizada para atacar endereços externos ao experimento. Para fins de demonstração, utilize o próprio IP desta máquina como alvo dos ataques (nos ataques diretos a um endereço IP. Nos ataques em nível de rede, utilize a rede docker0 (geralmente 172.17.0.0/16) ou sua rede local.
  2. Nos conteineres servidores serão mapeadas as seguintes portas (tabela abaixo) do host para os conteineres, podendo haver conflitos de portas no caso de o host ser de uso geral e não um ambiente criado exclusivamente para a instalação.
  3. O mapeamento de portas descrito no item 2 pode representar uma exposição sensível de informações do host caso este faça interface diretamente com a internet sem nenhum tipo de filtragem. 
 
@@ -119,7 +119,7 @@ Cabe ressaltar que todas as senhas, chaves SSH, chaves de API e outros elementos
 
 ![assets/vb4.png](assets/vb4.png)
 
-5. Após a inicialização da VM e login, abra o atalho no desktop:
+5. Após a inicialização da VM e login (usuário **user** e senha **ubuntu24**), abra o atalho no desktop:
 
 ![assets/vb5.png](assets/vb5.png)
 
@@ -138,26 +138,21 @@ git clone https://github.com/ljbitzki/sbrc26-sf.git && cd sbrc26-sf/
 
 ### Instalação automatizada:
 
-#### Estando no diretório raiz deste repositório, tornar executável o script `instalador1.sh`::
+#### Estando no diretório raiz deste repositório, tornar executável o script `instalador1.sh` e executá-lo:
 
 ```
-chmod +x instalador1.sh
+chmod +x instalador1.sh && ./instalador1.sh
 ```
 
-#### Instalar **todas as dependências** e instalar a ferramenta, rodando o script `instalador1.sh`:
-
-```
-./instalador1.sh
-```
-
-Aguarde o término da instalação das dependências e da ferramenta através do `instalador1.sh` e execute o próximo comando.
+Aguarde o término da instalação das dependências e da ferramenta ao término do `instalador1.sh` e execute os próximos comandos:
 
 ```
 newgrp docker
 ./instalador2.sh
 ```
 
-4. Aguarde o término do processo de construção das imagens. Ao concluir, serão exibidas informações em tela da URL em que a aplicação estará acessível.
+4. Aguarde o término do processo de construção das imagens e inicialização da ferramenta.
+Ao concluir, serão exibidas informações em tela da URL em que a aplicação estará acessível.
 
 **Nota:** _No ambiente de desenvolvimento, com recursos iguais aos da `Opção 2`, os procedimentos de instalação levaram em média `11 minutos e 30 segundos` para concluir na totalidade, baixando cerca de 2.3GB de dados pela internet e resultando no uso de 12GB de espaço adicional em disco. Este tempo deve variar conforme os recursos do ambiente de cada instalação._
 
