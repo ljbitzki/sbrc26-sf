@@ -136,7 +136,21 @@ sudo apt update && sudo apt install git -y
 git clone https://github.com/ljbitzki/sbrc26-sf.git && cd sbrc26-sf/
 ```
 
-3. Aguarde o término do processo de instalação de dependências. Ao concluir, serão exibidas informações em tela dos próximos comandos, sendo eles:
+### Instalação automatizada:
+
+#### Estando no diretório raiz deste repositório, tornar executável o script `instalador1.sh`::
+
+```
+chmod +x instalador1.sh
+```
+
+#### Instalar **todas as dependências** e instalar a ferramenta, rodando o script `instalador1.sh`:
+
+```
+./instalador1.sh
+```
+
+Aguarde o término da instalação das dependências e da ferramenta através do `instalador1.sh` e execute o próximo comando.
 
 ```
 newgrp docker

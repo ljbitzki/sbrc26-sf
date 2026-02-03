@@ -2,7 +2,7 @@
 
 echo "Instalando pacotes necessários..."
 sudo apt update
-sudo DEBIAN_FRONTEND=noninteractive apt install -y tshark tcpdump python3-venv cmake wireshark redis git ca-certificates curl
+sudo DEBIAN_FRONTEND=noninteractive apt install -y tshark tcpdump python3-venv cmake wireshark redis ca-certificates curl
 sudo DEBIAN_FRONTEND=noninteractive dpkg-reconfigure wireshark-common
 sudo chmod +x /usr/bin/dumpcap
 sudo setcap cap_net_raw,cap_net_admin=eip "$(command -v tcpdump)"
