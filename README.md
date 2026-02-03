@@ -33,7 +33,7 @@ git clone https://github.com/ljbitzki/sbrc26-sf.git && cd sbrc26-sf/
 
 ### Instalação automatizada:
 
-#### Estando no diretório raiz deste repositório, tornar executável o script `instalador1.sh`::
+#### Estando no diretório raiz deste repositório, tornar executável o script `instalador1.sh`:
 
 ```
 chmod +x instalador1.sh
@@ -63,7 +63,7 @@ Concluída a instalação, a ferramenta estará disponível acessando http://end
 
 ### Vídeo de demonstração da instalação da ferramenta em uma VM nova:
 
-[![video-demonstracao-instalacao](https://img.youtube.com/vi/fx2Z5ZD_Rbo/0.jpg)](https://www.youtube.com/watch?v=fx2Z5ZD_Rbo)
+[![video-demonstracao-instalacao](https://img.youtube.com/vi/qNCpw_xKxzU/0.jpg)](https://www.youtube.com/watch?v=qNCpw_xKxzU)
 
 ---
 

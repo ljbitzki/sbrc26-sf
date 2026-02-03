@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 echo "Construindo os contêineres..."
-cd ~/sbrc26-sf/docker/ || exit 1
+cd docker/ || exit 1
 chmod +x build-images.sh
 ./build-images.sh
 echo "Contêineres criados... Executando Streamlit"
