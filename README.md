@@ -47,8 +47,8 @@ Os selos considerados são:
  
 #### Requisitos de software e hardware para cada Opção de execução:
 
- 1. **Opção 1:** Nesta opção, deve ser feito o download e importação de um Appliance Virtual (arquivo .ova) e execução do ambiente virtualizado utilizando VirtualBox. Para tanto, são necessários: Sistema Operacional com capacidade de rodar Oracle VirtualBox 7.1 ou superior, processador de arquitetura AMD64 com no mínimo 4 núcleos e flag de virtualzação VT-x ativada na BIOS, 8GB de memória RAM para uso exclusivo no experimento, 15GB de espaço de armazenamento adicional, Oracle VirtualBox 7.1 ou superior com Extension Pack correspondente à versão do VirtualBox; ou
- 2. **Opção 2:** Nesta opção, todo experimento será executado em ambiente local através do download e execução automatizada de todos os componentes. Para isto, são necessários: Sistema Operacional Linux, bare-metal ou VM, baseado em Ubuntu versão 24.04 ou mais recente: Ubuntu, Xubuntu e variantes), processador de arquitetura AMD64 com no mínimo 4 núcleos, 8GB de memória RAM, 15GB de espaço de armazenamento adicional.
+ 1. **Opção 1:** Nesta opção, deve ser feito o download e importação de um Appliance Virtual (arquivo .ova) e execução do ambiente virtualizado utilizando VirtualBox. Para tanto, são necessários: Sistema Operacional com capacidade de rodar Oracle VirtualBox 7.1 ou superior, processador de arquitetura AMD64 com no mínimo 6 núcleos e flag de virtualzação VT-x ativada na BIOS, 8GB de memória RAM para uso exclusivo no experimento, 15GB de espaço de armazenamento adicional, Oracle VirtualBox 7.1 ou superior com Extension Pack correspondente à versão do VirtualBox; ou
+ 2. **Opção 2:** Nesta opção, todo experimento será executado em ambiente local através do download e execução automatizada de todos os componentes. Para isto, são necessários: Sistema Operacional Linux, bare-metal ou VM, baseado em Ubuntu versão 24.04 ou mais recente: Ubuntu, Xubuntu e variantes), processador de arquitetura AMD64 com no mínimo 6 núcleos, 8GB de memória RAM, 15GB de espaço de armazenamento adicional.
 
 Resumo dos requisitos de hardware e sistema operacional:
 
@@ -104,7 +104,7 @@ Cabe ressaltar que todas as senhas, chaves SSH, chaves de API e outros elementos
 ### **Opção 1: Appliance pronta de VirtualBox:**
 
 1. Baixe o appliance (arquivo .ova) do experimento que está disponível através do [link](https://drive.google.com/file/d/1eOATPTJJhUBpCJntKLdyHAT69c49bkHW/view?usp=drive_link).
-2. Importe o arquivo `sbrc26-sf-desktop.ova` baixado no VirtualBox:
+2. Importe o arquivo `sbrc26-sf-desktop.ova` baixado no VirtualBox. Apenas ajuste o local onde a máquina será armazenada, demais informações podem ser deixadas como padrão:
    
 ![assets/vb1.png](assets/vb1.png)
 
@@ -370,7 +370,7 @@ sbrc26-sf
 Documentação dos módulos e funções: [CLIQUE AQUI](https://leftredshift.github.io/modules)
 
 # Ambiente de testes:
-***Hardware:*** Processador: AMD Ryzen 5 5500X, Memória RAM: 16GB DDR4, Armazenamento SSD.
+***Hardware:*** Processador: AMD Ryzen 5 5500X, Memória RAM: 8GB DDR4, Armazenamento SSD.
 ***Software (Pincipal):*** Sistema Operacional: Kubuntu 24.04 LTS, Python 3.12 e módulo VENV, Docker Engine 29.2.1 e VirtualBox 7.1
 
 # LICENSE
