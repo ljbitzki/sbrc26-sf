@@ -103,8 +103,8 @@ Cabe ressaltar que todas as senhas, chaves SSH, chaves de API e outros elementos
 
 ### **Opção 1: Appliance pronta de VirtualBox:**
 
-1. Baixe o appliance (arquivo .ova) do experimento que está disponível através do [link](https://drive.google.com/file/d/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/view?usp=sharing).
-2. Importe o arquivo __XXXXXXXXX.ova__ baixado no VirtualBox:
+1. Baixe o appliance (arquivo .ova) do experimento que está disponível através do [link](https://drive.google.com/file/d/1eOATPTJJhUBpCJntKLdyHAT69c49bkHW/view?usp=drive_link).
+2. Importe o arquivo `sbrc26-sf-desktop.ova` baixado no VirtualBox:
    
 ![assets/vb1.png](assets/vb1.png)
 
@@ -116,11 +116,11 @@ Cabe ressaltar que todas as senhas, chaves SSH, chaves de API e outros elementos
 
 ![assets/vb3.png](assets/vb3.png)
 
-**4.1. Caso seja exibida uma mensagem de erro do VirtualBox referente a interface de rede, isto é porque a nomenclatura do dispositivo de rede local é diferente daquela existente no computador onde a imagem foi gerada. Basta selecionar a opção "Alterar as opções de rede" e salvar.**
+**4.1. Caso seja exibida uma mensagem de erro do VirtualBox referente a interface de rede, isto é porque a nomenclatura do dispositivo de rede local é diferente daquela existente no computador onde a imagem foi gerada. Basta selecionar a opção "Alterar as opções de rede" e salvar sem nenhuma alteração.**
 
 ![assets/vb4.png](assets/vb4.png)
 
-5. Após a inicialização da VM e login (usuário **user** e senha **ubuntu24**), abra o atalho no desktop:
+5. Após a inicialização da VM e login (usuário **user** e senha **ubuntu24**), abra o atalho do navegador no desktop:
 
 ![assets/vb5.png](assets/vb5.png)
 
@@ -161,7 +161,7 @@ Ao concluir, serão exibidas informações em tela da URL em que a aplicação e
 
 **Nota:** _No ambiente de desenvolvimento, com recursos iguais aos da `Opção 2`, os procedimentos de instalação levaram em média `11 minutos e 30 segundos` para concluir na totalidade, baixando cerca de 2.3GB de dados pela internet e resultando no uso de 12GB de espaço adicional em disco. Este tempo deve variar conforme os recursos do ambiente de cada instalação._
 
-#### Vídeo de demonstração da instalação do testbed em uma VM nova utilizando o a `Opção 2`:
+#### Vídeo de demonstração da instalação do testbed em uma VM nova utilizando a `Opção 2`:
 
 [![video-demonstracao-instalacao](https://img.youtube.com/vi/qNCpw_xKxzU/0.jpg)](https://www.youtube.com/watch?v=qNCpw_xKxzU)
 
@@ -331,7 +331,7 @@ docker image ls -a --format table | grep 'sbrc26-'
 
 ## Demonstração completa em vídeo do testbed e das reivindicações, utilizando o ambiente instalado manualmente (`Opção 2`)
 
-[![video-demonstracao-uso](https://img.youtube.com/vi/fx2Z5ZD_Rbo/0.jpg)](https://www.youtube.com/watch?v=fx2Z5ZD_Rbo)
+[![video-demonstracao-uso](https://img.youtube.com/vi/OV3W2p0C8-w/0.jpg)](https://www.youtube.com/watch?v=OV3W2p0C8-w)
 
 ---
 
