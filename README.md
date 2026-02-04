@@ -116,7 +116,8 @@ Cabe ressaltar que todas as senhas, chaves SSH, chaves de API e outros elementos
 
 ![assets/vb3.png](assets/vb3.png)
 
-**4.1. Caso seja exibida uma mensagem de erro do VirtualBox referente a interface de rede, isto é porque a nomenclatura do dispositivo de rede local é diferente daquela existente no computador onde a imagem foi gerada. Basta selecionar a opção "Alterar as opções de rede" e salvar sem nenhuma alteração.**
+> [!IMPORTANT]  
+> Caso seja exibida uma mensagem de erro do VirtualBox referente a interface de rede, isto é porque a nomenclatura do dispositivo de rede local é diferente daquela existente no computador onde a imagem foi gerada. Basta selecionar a opção "Alterar as opções de rede" e salvar sem nenhuma alteração.
 
 ![assets/vb4.png](assets/vb4.png)
 
