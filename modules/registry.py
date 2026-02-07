@@ -23,6 +23,7 @@ class AttackSpec:
     mitre: Optional[Union[str, List[str]]] = None
     tools: Optional[List[Dict[str, str]]] = None
 
+    max_runtime_s: int = 10  # tempo máximo de execução (s)
     def runner(self, resolved_params: Dict[str, Any]) -> Dict[str, Any]:
         args = [str(resolved_params[p.key]) for p in self.params]
         return docker_run_detached(
@@ -42,6 +43,7 @@ def A(
     details_warning: Optional[str] = None,
     mitre: Optional[Union[str, List[str]]] = None,
     tools: Optional[List[Dict[str, str]]] = None,
+    max_runtime_s: int = 10,
 ) -> AttackSpec:
 
     return AttackSpec(
@@ -55,6 +57,7 @@ def A(
         details_warning=details_warning,
         mitre=mitre,
         tools=tools,
+        max_runtime_s=max_runtime_s,
     )
 
 CATEGORIES: Dict[str, List[AttackSpec]] = {
@@ -65,7 +68,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Tentativas de acesso a arquivos locais via webserver, através de wordlist.",
             image_base="sbrc26-ataque-idor-path-traversal",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8080", default=8080),
             ],
             mitre=[
@@ -85,7 +88,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Exploração de LFI (Local File Inclusion) em aplicação PHP, através de wordlist.",
             image_base="sbrc26-ataque-php-lfi-enumeration",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8080", default=8080),
             ],
             mitre=[
@@ -102,7 +105,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Testes de exploração de SQL Injection.",
             image_base="sbrc26-ataque-sql-injection",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8080", default=8080),
             ],
             mitre=[
@@ -121,12 +124,12 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Enumeração de subdiretórios e recursos do webserver através de wordlist.",
             image_base="sbrc26-ataque-web-dir-enumeration",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8080", default=8080),
             ],
             details_warning=(
                 "Este ataque pode gerar muitos dados se for capturado até seu término automático. "
-                "Para fins de demonstração, sugere-se parar manualmente o ataque alguns segundos após iniciado."
+                "Para fins de demonstração, sugere-se utilizar menos de 5 segundos de execução."
             ),
             mitre=[
                 "https://attack.mitre.org/tactics/TA0043/", 
@@ -142,7 +145,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Scanner/exploração Heartbleed sobre servidor HTTPS vulnerável.",
             image_base="sbrc26-ataque-web-https-heartbleed",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8443", default=8443),
             ],
             mitre=[
@@ -161,12 +164,12 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Força bruta de autenticação via POST em aplicação web através de wordlist.",
             image_base="sbrc26-ataque-web-post-bruteforce",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8080", default=8080),
             ],
             details_warning=(
                 "Este ataque pode gerar muitos dados se for capturado até seu término automático. "
-                "Para fins de demonstração, sugere-se parar manualmente o ataque alguns segundos após iniciado."
+                "Para fins de demonstração, sugere-se utilizar menos de 5 segundos de execução."
             ),
             mitre=[
                 "https://attack.mitre.org/tactics/TA0006/", 
@@ -183,7 +186,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Scanner simplificado de vulnerabilidades web conhecidas.",
             image_base="sbrc26-ataque-web-simple-scanner",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8080", default=8080),
             ],
             mitre=[
@@ -200,12 +203,12 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Scanner amplo de vulnerabilidades web conhecidas.",
             image_base="sbrc26-ataque-web-wide-scanner",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8080", default=8080),
             ],
             details_warning=(
                 "Este ataque pode gerar muitos dados se for capturado até seu término automático. "
-                "Para fins de demonstração, sugere-se parar manualmente o ataque alguns segundos após iniciado."
+                "Para fins de demonstração, sugere-se utilizar menos de 5 segundos de execução."
             ),
             mitre=[
                 "https://attack.mitre.org/tactics/TA0043/", 
@@ -221,7 +224,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Varredura automatizada e análise de falhas de parâmetros suscetíveis a XSS.",
             image_base="sbrc26-ataque-xss-scanner",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8080", default=8080),
             ],
             mitre=[
@@ -243,7 +246,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Força bruta de autenticação SSH.",
             image_base="sbrc26-ataque-ssh-bruteforce",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="2222", default=2222),
             ],
             mitre=[
@@ -260,7 +263,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Força bruta de autenticação Telnet.",
             image_base="sbrc26-ataque-telnet-bruteforce",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="2323", default=2323),
             ],
             mitre=[
@@ -279,7 +282,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             name="CoAP GET Flood",
             description="Flood de requisições GET em protocolo CoAP.",
             image_base="sbrc26-ataque-coap-get-flood",
-            params=[ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__")],
+            params=[ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__")],
             mitre=[
                 "https://attack.mitre.org/tactics/TA0040/", 
                 "https://attack.mitre.org/techniques/T1499/", 
@@ -294,7 +297,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             name="MQTT Bruteforce",
             description="Flood de requisições GET em protocolo MQTT através de wordlist.",
             image_base="sbrc26-ataque-mqtt-bruteforce",
-            params=[ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__")],
+            params=[ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__")],
             mitre=[
                 "https://attack.mitre.org/tactics/TA0006/", 
                 "https://attack.mitre.org/techniques/T1110/001/", 
@@ -309,7 +312,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             name="MQTT Publisher",
             description="Flood de publicações em protocolo MQTT.",
             image_base="sbrc26-ataque-mqtt-publisher",
-            params=[ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__")],
+            params=[ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__")],
             mitre=[
                 "https://attack.mitre.org/tactics/TA0040/", 
                 "https://attack.mitre.org/techniques/T1499/002/", 
@@ -327,7 +330,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="DoS simples de aplicação HTTP.",
             image_base="sbrc26-ataque-dos-http-simple",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8080", default=8080),
             ],
             mitre=[
@@ -347,7 +350,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="DoS do tipo Slowloris de aplicação HTTP.",
             image_base="sbrc26-ataque-dos-http-slowloris",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8080", default=8080),
             ],
             mitre=[
@@ -364,12 +367,12 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Flood de pacotes TCP com a flag FIN.",
             image_base="sbrc26-ataque-fin-flood",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8080", default=8080),
             ],
             details_warning=(
                 "Este ataque pode gerar muitos dados se for capturado até seu término automático. "
-                "Para fins de demonstração, sugere-se parar manualmente o ataque alguns segundos após iniciado."
+                "Para fins de demonstração, sugere-se utilizar menos de 5 segundos de execução."
             ),
             mitre=[
                 "https://attack.mitre.org/tactics/TA0007/", 
@@ -385,10 +388,10 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             name="ICMP Flood",
             description="Flood de pacotes ICMP.",
             image_base="sbrc26-ataque-icmp-flood",
-            params=[ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__")],
+            params=[ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__")],
             details_warning=(
                 "Este ataque pode gerar muitos dados se for capturado até seu término automático. "
-                "Para fins de demonstração, sugere-se parar manualmente o ataque alguns segundos após iniciado."
+                "Para fins de demonstração, sugere-se utilizar menos de 5 segundos de execução."
             ),
             mitre=[
                 "https://attack.mitre.org/tactics/TA0040/", 
@@ -404,12 +407,12 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Flood de pacotes TCP com a flag PSH.",
             image_base="sbrc26-ataque-psh-flood",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8080", default=8080),
             ],
             details_warning=(
                 "Este ataque pode gerar muitos dados se for capturado até seu término automático. "
-                "Para fins de demonstração, sugere-se parar manualmente o ataque alguns segundos após iniciado."
+                "Para fins de demonstração, sugere-se utilizar menos de 5 segundos de execução."
             ),
             mitre=[
                 "https://attack.mitre.org/tactics/TA0040/", 
@@ -425,12 +428,12 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Flood de pacotes TCP com a flag RST.",
             image_base="sbrc26-ataque-rst-flood",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8080", default=8080),
             ],
             details_warning=(
                 "Este ataque pode gerar muitos dados se for capturado até seu término automático. "
-                "Para fins de demonstração, sugere-se parar manualmente o ataque alguns segundos após iniciado."
+                "Para fins de demonstração, sugere-se utilizar menos de 5 segundos de execução."
             ),
             mitre=[
                 "https://attack.mitre.org/tactics/TA0040/", 
@@ -446,12 +449,12 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Flood de pacotes TCP com a flag SYN.",
             image_base="sbrc26-ataque-syn-flood",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8080", default=8080),
             ],
             details_warning=(
                 "Este ataque pode gerar muitos dados se for capturado até seu término automático. "
-                "Para fins de demonstração, sugere-se parar manualmente o ataque alguns segundos após iniciado."
+                "Para fins de demonstração, sugere-se utilizar menos de 5 segundos de execução."
             ),
             mitre=[
                 "https://attack.mitre.org/tactics/TA0040/", 
@@ -467,12 +470,12 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Flood de pacotes UDP.",
             image_base="sbrc26-ataque-udp-flood",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="8080", default=8080),
             ],
             details_warning=(
                 "Este ataque pode gerar muitos dados se for capturado até seu término automático. "
-                "Para fins de demonstração, sugere-se parar manualmente o ataque alguns segundos após iniciado."
+                "Para fins de demonstração, sugere-se utilizar menos de 5 segundos de execução."
             ),
             mitre=[
                 "https://attack.mitre.org/tactics/TA0040/", 
@@ -520,7 +523,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             name="Port Scanner Aggressive",
             description="Varredura de portas/serviços com perfil agressivo.",
             image_base="sbrc26-ataque-port-scanner-aggressive",
-            params=[ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__")],
+            params=[ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__")],
             mitre=[
                 "https://attack.mitre.org/tactics/TA0007/", 
                 "https://attack.mitre.org/techniques/T1595/001/", 
@@ -537,7 +540,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             name="Port Scanner OS",
             description="Detecção de Sistema Operacional (fingerprinting) do alvo.",
             image_base="sbrc26-ataque-port-scanner-os",
-            params=[ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__")],
+            params=[ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__")],
             mitre=[
                 "https://attack.mitre.org/tactics/TA0007/", 
                 "https://attack.mitre.org/techniques/T1595/001/", 
@@ -553,7 +556,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             name="Port Scanner TCP",
             description="Varredura de portas TCP do alvo.",
             image_base="sbrc26-ataque-port-scanner-tcp",
-            params=[ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__")],
+            params=[ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__")],
             mitre=[
                 "https://attack.mitre.org/tactics/TA0007/", 
                 "https://attack.mitre.org/techniques/T1595/001/", 
@@ -569,7 +572,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             name="Port Scanner UDP",
             description="Varredura de portas UDP do alvo.",
             image_base="sbrc26-ataque-port-scanner-udp",
-            params=[ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__")],
+            params=[ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__")],
             mitre=[
                 "https://attack.mitre.org/tactics/TA0007/", 
                 "https://attack.mitre.org/techniques/T1595/001/", 
@@ -585,7 +588,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             name="Port Scanner Vulnerabilities",
             description="Varredura de portas e checagem de vulnerabilidades conhecidas.",
             image_base="sbrc26-ataque-port-scanner-vulnerabilities",
-            params=[ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__")],
+            params=[ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__")],
             mitre=[
                 "https://attack.mitre.org/tactics/TA0043/", 
                 "https://attack.mitre.org/techniques/T1595/002/", 
@@ -599,7 +602,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             name="SMB Enumerating",
             description="Enumeração de diretórios e vulnerabilidades de compartilhamentos SMB.",
             image_base="sbrc26-ataque-smb-enumerating",
-            params=[ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__")],
+            params=[ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__")],
             mitre=[
                 "https://attack.mitre.org/tactics/TA0007/", 
                 "https://attack.mitre.org/tactics/TA0043/", 
@@ -615,7 +618,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             name="SNMP Scanner",
             description="Scanner SNMP em todos os hosts de uma rede, através de wordlist de comunidades.",
             image_base="sbrc26-ataque-snmp-scanner",
-            params=[ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__")],
+            params=[ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__")],
             mitre=[
                 "https://attack.mitre.org/tactics/TA0007/", 
                 "https://attack.mitre.org/tactics/TA0006/", 
@@ -656,7 +659,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             no_params_note="Este ataque não recebe parâmetros e atua em nível de rede local.",
             details_warning=(
                 "Este ataque pode gerar muitos dados se for capturado até seu término automático. "
-                "Para fins de demonstração, sugere-se parar manualmente o ataque alguns segundos após iniciado."
+                "Para fins de demonstração, sugere-se utilizar menos de 5 segundos de execução."
             ),
             mitre=[
                 "https://attack.mitre.org/tactics/TA0040/", 
@@ -692,7 +695,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             no_params_note="Este ataque não recebe parâmetros e atua em nível de rede local.",
             details_warning=(
                 "Este ataque pode gerar muitos dados se for capturado até seu término automático. "
-                "Para fins de demonstração, sugere-se parar manualmente o ataque alguns segundos após iniciado."
+                "Para fins de demonstração, sugere-se utilizar menos de 5 segundos de execução."
             ),
             mitre=[
                 "https://attack.mitre.org/tactics/TA0040/", 
@@ -712,7 +715,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             no_params_note="Este ataque não recebe parâmetros e atua em nível de rede local.",
             details_warning=(
                 "Este ataque pode gerar muitos dados se for capturado até seu término automático. "
-                "Para fins de demonstração, sugere-se parar manualmente o ataque alguns segundos após iniciado."
+                "Para fins de demonstração, sugere-se utilizar menos de 5 segundos de execução."
             ),
             mitre=[
                 "https://attack.mitre.org/tactics/TA0040/", 
@@ -732,7 +735,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             no_params_note="Este ataque não recebe parâmetros e atua em nível de rede local.",
             details_warning=(
                 "Este ataque pode gerar muitos dados se for capturado até seu término automático. "
-                "Para fins de demonstração, sugere-se parar manualmente o ataque alguns segundos após iniciado."
+                "Para fins de demonstração, sugere-se utilizar menos de 5 segundos de execução."
             ),
             mitre=[
                 "https://attack.mitre.org/tactics/TA0040/", 
@@ -751,7 +754,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             no_params_note="Este ataque não recebe parâmetros e atua em nível de rede local.",
             details_warning=(
                 "Este ataque pode gerar muitos dados se for capturado até seu término automático. "
-                "Para fins de demonstração, sugere-se parar manualmente o ataque alguns segundos após iniciado."
+                "Para fins de demonstração, sugere-se utilizar menos de 5 segundos de execução."
             ),
             mitre=[
                 "https://attack.mitre.org/tactics/TA0007/", 
@@ -771,7 +774,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             no_params_note="Este ataque não recebe parâmetros e atua em nível de rede local.",
             details_warning=(
                 "Este ataque pode gerar muitos dados se for capturado até seu término automático. "
-                "Para fins de demonstração, sugere-se parar manualmente o ataque alguns segundos após iniciado."
+                "Para fins de demonstração, sugere-se utilizar menos de 5 segundos de execução."
             ),
             mitre=[
                 "https://attack.mitre.org/tactics/TA0006/", 
@@ -810,7 +813,7 @@ CATEGORIES: Dict[str, List[AttackSpec]] = {
             description="Túnel TCP de porta 22 (SSH) sobre ICMP (pings).",
             image_base="sbrc26-ataque-icmp-tunnel",
             params=[
-                ParamSpec("target_ip", "Endereço IP do Alvo", "ip", placeholder="__HOST_IP__"),
+                ParamSpec("target_ip", "Endereço IP ou FQDN do Alvo", "ip", placeholder="__HOST_IP__"),
                 ParamSpec("target_port", "Porta do alvo", "port", placeholder="2222", default=2222),
             ],
             mitre=[

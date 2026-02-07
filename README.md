@@ -197,6 +197,18 @@ Para verificar a criação das 50 imagens de conteineres Docker descritas no art
 docker image ls -a --format table | grep 'sbrc26-'
 ```
 
+### Informações sobre os servidores:
+
+| **Servidor** | **Container (Nome)** | **Mapeamento de portas (host:container)** |
+|-|-|-|
+| `Web Server` | `sbrc26-servidor-http-server` | `TCP` **8080:80** |
+| `SSH Server` | `sbrc26-servidor-ssh-server` | `TCP` **2222:22** |
+| `SMB Server` | `sbrc26-servidor-smb-server` | `TCP`  **139:139**, **445:445** - `UDP` **137:137**, **138:138** |
+| `MQTT Broker` | `sbrc26-servidor-mqtt-broker` | `TCP` **1883:1883**, **9001:9001** |
+| `CoAP Server` | `sbrc26-servidor-coap-server` | `TCP` **5683:5683** - `UDP` **5683:5683** |
+| `Telnet Server` | `sbrc26-servidor-telnet-server` | `TCP` **2323:23** |
+| `SSL HeartBleed` | `sbrc26-servidor-ssl-heartbleed` | `TCP` **8443:443** |
+
 ### Operações do testbed:
 
 #### Tela principal: Acessível em http://seu.endereço.ip:8501/

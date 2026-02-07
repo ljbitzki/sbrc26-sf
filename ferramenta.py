@@ -39,6 +39,144 @@ TMP_DIR = Path(".tmp")
 
 LOGS_DIR = Path("logs")
 BENIGN_CLIENTS_LOG = LOGS_DIR / "benign_clients.log"
+ATTACKS_LOG_PATH = LOGS_DIR / "attacks.log"
+ATTACKS_LOG = LOGS_DIR / "attacks.log"
+_ATTACKS_LOG_LOCK = threading.Lock()
+
+def _ensure_logs_dir() -> None:
+    """
+    Garante a existência de diretórios
+    """
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+def _append_attacks_log_line(line: str) -> None:
+    """
+    Append logs de ataques ao final do arquivo logs/attacks.log
+
+    :param line: Linha de log
+    :type line: str
+    """
+    _ensure_logs_dir()
+    with _ATTACKS_LOG_LOCK:
+        with ATTACKS_LOG.open("a", encoding="utf-8") as f:
+            f.write(line.rstrip("\n") + "\n")
+
+def _log_attack_event(event: str, **fields: Any) -> None:
+    """
+    Rótulo para o evento a ser gravado no arquivo logs/attacks.log
+
+    :param event: _description_
+    :type event: Rótulo adicional da linha de log
+    """
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    parts: List[str] = []
+    for k, v in fields.items():
+        if v is None:
+            continue
+        parts.append(f"{k}={v}")
+    _append_attacks_log_line(f"[{ts}] {event} " + " ".join(parts))
+
+def start_attack_logs_watcher(
+    container_ref: str,
+    spec: AttackSpec,
+    *,
+    cmd: Optional[List[str]] = None,
+    pcap_path: Optional[str] = None,
+    max_runtime_s: Optional[int] = None,
+    capture_enabled: bool = False,
+) -> None:
+    """
+    "Acompanhador" do logs para gravação
+
+    :param container_ref: Container ID
+    :type container_ref: str
+    :param spec: Especificação do container
+    :type spec: AttackSpec
+    :param cmd: Descrição, padrão é None
+    :type cmd: Optional[List[str]], optional
+    :param pcap_path: Caminho de armazenamento do pcap, padrão é None
+    :type pcap_path: Optional[str], optional
+    :param max_runtime_s: Máximo de tempo de execução em segundos, padrão é None
+    :type max_runtime_s: Optional[int], optional
+    :param capture_enabled: Se a captura está habilitada ou não, padrão é None
+    :type capture_enabled: bool, optional
+    """
+
+    def _worker() -> None:
+        try:
+            _log_attack_event(
+                "ATTACK_START",
+                attack_id=spec.id,
+                container=spec.container_name,
+                image=spec.image,
+                max_runtime_s=max_runtime_s,
+                capture=capture_enabled,
+                pcap=pcap_path,
+            )
+            if cmd:
+                _append_attacks_log_line(f"[{spec.id}|{spec.container_name}] CMD: " + " ".join(map(str, cmd)))
+
+            p = subprocess.Popen(
+                ["docker", "logs", "-f", "--timestamps", container_ref],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+            if p.stdout:
+                for raw in iter(p.stdout.readline, b""):
+                    if not raw:
+                        break
+                    line = raw.decode("utf-8", errors="replace").rstrip("\n")
+                    _append_attacks_log_line(f"[{spec.id}|{spec.container_name}] {line}")
+            try:
+                p.wait(timeout=60 * 60 * 12)
+            except Exception:
+                try:
+                    p.kill()
+                except Exception:
+                    pass
+        except Exception as e:
+            _append_attacks_log_line(f"[{spec.id}|{spec.container_name}] [logs_watcher_error] {e}")
+
+        exit_code: Optional[int] = None
+        rc, out, _ = _run(["docker", "inspect", "-f", "{{.State.ExitCode}}", container_ref])
+        if rc == 0:
+            out = out.strip()
+            if out.isdigit():
+                exit_code = int(out)
+
+        _log_attack_event(
+            "ATTACK_END",
+            attack_id=spec.id,
+            container=spec.container_name,
+            exit_code=exit_code,
+        )
+    threading.Thread(target=_worker, daemon=True).start()
+
+def start_attack_timeout_watchdog(container_ref: str, spec: AttackSpec, max_runtime_s: int) -> None:
+    """
+    Após `max_runtime_s`, se o container ainda estiver em execução, encerra com `docker rm -f`.
+    """
+
+    def _worker() -> None:
+        try:
+            time.sleep(max_runtime_s)
+            rc, out, _ = _run(["docker", "inspect", "-f", "{{.State.Running}}", container_ref])
+            if rc == 0 and out.strip().lower() == "true":
+                _log_attack_event(
+                    "ATTACK_TIMEOUT",
+                    attack_id=spec.id,
+                    container=spec.container_name,
+                    max_runtime_s=max_runtime_s,
+                )
+                rc2, out2, err2 = _run(["docker", "rm", "-f", container_ref])
+                _append_attacks_log_line(
+                    f"[{spec.id}|{spec.container_name}] [timeout_kill] rc={rc2} out={out2.strip()} err={err2.strip()}"
+                )
+        except Exception as e:
+            _append_attacks_log_line(f"[{spec.id}|{spec.container_name}] [timeout_watchdog_error] {e}")
+
+    if max_runtime_s and max_runtime_s > 0:
+        threading.Thread(target=_worker, daemon=True).start()
 
 def build_dataset_path_for_capture(pcap_path: Path) -> Path:
     """
@@ -60,7 +198,6 @@ def _ensure_dirs() -> None:
     CAPTURES_DIR.mkdir(parents=True, exist_ok=True)
     FEATURES_DIR.mkdir(parents=True, exist_ok=True)
     TMP_DIR.mkdir(parents=True, exist_ok=True)
-
 
 def stem_no_ext(p: Path) -> str:
     """
@@ -113,9 +250,9 @@ def tool_exists(exe: str) -> bool:
     """
     return shutil.which(exe) is not None
 
-# -----------------------------
+# -----------------------------------
 # Execução de comandos (binary-safe)
-# -----------------------------
+# -----------------------------------
 def _run(cmd: List[str]) -> Tuple[int, str, str]:
     """
     Executa comando e retorna (rc, stdout, stderr) SEM UnicodeDecodeError.
@@ -131,18 +268,24 @@ def _run(cmd: List[str]) -> Tuple[int, str, str]:
     stderr = (p.stderr or b"").decode("utf-8", errors="replace").strip()
     return p.returncode, stdout, stderr
 
-
 # -----------------------------
 # Logs centralizados: clientes benignos
 # -----------------------------
 _BENIGN_LOG_LOCK = threading.Lock()
 
 def _ensure_logs_dir() -> None:
-    """Garante diretório logs/."""
+    """
+    Garante diretório logs/.
+    """
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
 def _append_benign_log(line: str) -> None:
-    """Append (thread-safe) em logs/benign_clients.log."""
+    """
+    Append logs por threading em logs/benign_clients.log
+
+    :param line: Linha de log
+    :type line: str
+    """
     _ensure_logs_dir()
     if not line.endswith("\n"):
         line += "\n"
@@ -151,13 +294,29 @@ def _append_benign_log(line: str) -> None:
             f.write(line)
 
 def _log_event(event: str, **fields: Any) -> None:
-    """Loga um evento em linha única com timestamp."""
+    """
+    Loga um evento em linha única com timestamp.
+
+    :param event: Parâmetros do evento
+    :type event: str
+    """
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     extra = " ".join([f"{k}={v}" for k, v in fields.items() if v is not None and str(v) != ""])
     _append_benign_log(f"[{ts}] {event} {extra}".rstrip())
 
 def tail_text_file(path: Path, n_lines: int = 400, max_bytes: int = 256 * 1024) -> str:
-    """Lê as últimas N linhas (aprox) de um arquivo texto, limitando bytes."""
+    """
+    Lê as últimas N linhas (aprox) de um arquivo texto, limitando bytes.
+
+    :param path: Caminho do arquivo de log
+    :type path: Path
+    :param n_lines: Número de linhas para exibir, padrão é 400
+    :type n_lines: int, optional
+    :param max_bytes: Máximo de byes para exibir, padrão é 256*1024
+    :type max_bytes: int, optional
+    :return: String dos logs para exibir
+    :rtype: str
+    """
     if not path.exists():
         return ""
     try:
@@ -174,8 +333,16 @@ def start_benign_logs_watcher(container_ref: str, kind: str, *, container_name: 
     """
     Segue `docker logs -f --timestamps` e grava em logs/benign_clients.log.
     Ao finalizar (ou se já tiver finalizado), tenta registrar exit_code e remover o container.
-    """
 
+    :param container_ref: Container ID
+    :type container_ref: str
+    :param kind: Tipo de parâmetro
+    :type kind: str
+    :param container_name: Nome do container, padrão é None
+    :type container_name: Optional[str], optional
+    :param cmd: Comando de execução, padrão é None
+    :type cmd: Optional[List[str]], optional
+    """
     def _worker() -> None:
         ref = container_ref or (container_name or "")
         name = container_name or container_ref
@@ -198,7 +365,6 @@ def start_benign_logs_watcher(container_ref: str, kind: str, *, container_name: 
 
             p.wait()
 
-            # stderr (se houver)
             err_bytes = b""
             if p.stderr:
                 try:
@@ -211,7 +377,6 @@ def start_benign_logs_watcher(container_ref: str, kind: str, *, container_name: 
         except Exception as e:
             _append_benign_log(f"[{name}] [watcher-error] {e}")
 
-        # exit code
         exit_code: Optional[str] = None
         rc2, out2, _ = _run(["docker", "wait", ref])
         if rc2 == 0 and out2.strip().isdigit():
@@ -223,13 +388,20 @@ def start_benign_logs_watcher(container_ref: str, kind: str, *, container_name: 
 
         _log_event("BENIGN_CLIENT_END", kind=kind, name=name, exit_code=exit_code)
 
-        # cleanup: remove (best-effort)
+        # cleanup
         _run(["docker", "rm", "-f", name])
 
     threading.Thread(target=_worker, daemon=True).start()
 
 def snapshot_benign_container_logs(names: List[str], kind: str) -> None:
-    """Captura logs atuais (não-follow) antes de remover containers."""
+    """
+    Captura logs atuais (não-follow) antes de remover containers.
+
+    :param names: Lista de parâmetros
+    :type names: List[str]
+    :param kind: Tipo de parâmetro
+    :type kind: str
+    """
     if not names:
         return
     for name in names:
@@ -411,6 +583,11 @@ _BENIGN_SUPER_RE = re.compile(rf"^{re.escape(SUPER_CLIENT_NAME_PREFIX)}(\d{{1,2}
 def _list_containers_by_regex(name_re: "re.Pattern") -> List[Tuple[str, str]]:
     """
     Retorna [(name, status)] para containers (docker ps -a) cujo nome casa com name_re.
+
+    :param name_re: Nomes retornados conforme a regex
+    :type name_re: re.Pattern
+    :return: Lista de containers retornados
+    :rtype: List[Tuple[str, str]]
     """
     if not docker_available():
         return []
@@ -429,6 +606,14 @@ def _list_containers_by_regex(name_re: "re.Pattern") -> List[Tuple[str, str]]:
     return rows
 
 def _is_running_status(status: str) -> bool:
+    """
+    Verifica e retorna se um container está em um status
+
+    :param status: status
+    :type status: str
+    :return: True oy False
+    :rtype: bool
+    """
     s = (status or "").strip().lower()
     return s.startswith("up") or s.startswith("restarting") or s.startswith("paused")
 
@@ -436,6 +621,9 @@ def purge_stale_benign_containers() -> Dict[str, Any]:
     """
     Remove containers benignos que não estejam rodando (Exited/Created/Dead/etc).
     Evita conflito de nome quando o app reinicia e sobram containers antigos.
+
+    :return: Retorna dicionário de clientes em status que não seja running para remoção
+    :rtype: Dict[str, Any]
     """
     removed: List[str] = []
     errors: List[str] = []
@@ -563,9 +751,9 @@ def start_one_super_client(
         "container_name": name,
     }
 
-# -----------------------------
-# Sidebar: Servidores + Logs
-# -----------------------------
+# -------------------------------------------
+# Sidebar: Servidores e Logs dos Servidores
+# -------------------------------------------
 
 # Especificações dos servidores para exibir na barra lateral
 SERVER_SPECS = [
@@ -616,7 +804,7 @@ st.caption(
     "e clique em Iniciar ataque para acionar a execução via Docker."
 )
 
-# Tentativa de deixar mais agradável as funcionalidades em tela
+# Tentativa de deixar mais "ok" visualmente as funcionalidades em tela
 st.markdown(
     '''
     <style>
@@ -1029,10 +1217,73 @@ def render_server_logs_view() -> None:
             st.code(err, language="text")
 
 
+def render_attacks_logs_view() -> None:
+    """
+    Renderização da tela de visualização dos logs dos ataques
+    """
+    st.subheader("Logs consolidados de ataques")
+
+    top = st.columns([1, 1, 3])
+    if top[0].button("Voltar"):
+        st.session_state["view"] = "main"
+        st.rerun()
+    if top[1].button("Atualizar"):
+        st.rerun()
+
+    path = ATTACKS_LOG_PATH
+    if not path.exists():
+        st.info(f'Nenhum log encontrado em "{path}".')
+        return
+
+    # Botão de download do logs/attacks.log
+    with open(path, "rb") as f:
+        st.download_button(
+            "Download attacks.log",
+            data=f,
+            file_name=path.name,
+            mime="text/plain",
+            use_container_width=False,
+            key="dl_attacks_log",
+        )
+
+    st.divider()
+
+    c1, c2, c3 = st.columns([1.2, 1.2, 2.6], gap="small")
+    tail_n = c1.number_input("Últimas linhas", min_value=50, max_value=5000, value=300, step=50, key="att_log_tail_n")
+    auto = c2.checkbox("Auto-atualizar", value=False, key="att_log_auto")
+    query = c3.text_input("Filtro (contém)", value="", key="att_log_filter").strip().lower()
+
+    try:
+        # Lê o arquivo inteiro (geralmente ok), pega tail, filtra
+        text = path.read_text(encoding="utf-8", errors="replace")
+        lines = text.splitlines()
+
+        # Tail primeiro (mais rápido)
+        lines = lines[-int(tail_n):]
+
+        # Filtro
+        if query:
+            lines = [ln for ln in lines if query in ln.lower()]
+
+        st.caption(f"Exibindo {len(lines)} linha(s).")
+        st.text_area("attacks.log", value="\n".join(lines), height=520, key="att_log_text", disabled=True)
+
+    except Exception as e:
+        st.error("Falha ao ler o arquivo de log.")
+        st.code(str(e), language="text")
+
+    # Tentativa de auto-refresh simples
+    if auto:
+        time.sleep(1)
+        st.rerun()
+
 # -----------------------------
 # Clientes benignos (view)
 # -----------------------------
 def _render_last_client_action() -> None:
+    """
+    Renderização das informações da última execução
+    """
     res = st.session_state.get("last_client_action")
     if not res:
         return
@@ -1052,6 +1303,9 @@ def _render_last_client_action() -> None:
             st.code(res["stderr"], language="text")
 
 def render_benign_clients_view() -> None:
+    """
+    Renderização da tela de controle dos clientes benignos
+    """
     st.subheader("Controle de clientes benignos")
 
     top = st.columns([1, 1, 3])
@@ -1226,6 +1480,12 @@ def render_benign_clients_view() -> None:
         from functools import partial
 
         def _super_apply_defaults(ip_map_local: dict) -> None:
+            """
+            Aplicar valores padrão (se declarados)
+
+            :param ip_map_local: Dicionário de valores padrão
+            :type ip_map_local: dict
+            """
             svc = st.session_state.get("super_svc")
             if not svc:
                 return
@@ -1252,7 +1512,6 @@ def render_benign_clients_view() -> None:
             on_change=partial(_super_apply_defaults, ip_map_local),
         )
 
-        # Texto informativo atualiza ao mudar o serviço
         st.info(SUPER_SERVICE_SPECS[svc]["desc"])
         if "super_port" not in st.session_state:
             st.session_state["super_port"] = int(SUPER_SERVICE_SPECS[svc]["default_port"])
@@ -1272,10 +1531,9 @@ def render_benign_clients_view() -> None:
             )
 
         if submitted:
-            # validações simples
             errs = []
-            if not ip or not validate_ip(ip):
-                errs.append('Campo "IP" inválido.')
+            if not ip or not validate_ip_or_fqdn(ip, allow_single_label=False):
+                errs.append('Campo "IP" inválido (IP ou FQDN).')
             if not validate_port(int(port)):
                 errs.append('Campo "Porta" inválido (1–65535).')
             if int(max_access) < 1:
@@ -1808,8 +2066,11 @@ rows = get_servers_status()
 ip_map = {r["Servidor"]: r["IP"] for r in rows}
 
 st.sidebar.header("Dados Armazenados")
-if st.sidebar.button("Ver Capturas Realizadas", type="secondary"):
+if st.sidebar.button("Arquivos de Capturas Realizadas", use_container_width=True):
     st.session_state["view"] = "captures"
+    st.rerun()
+if st.sidebar.button("Logs de Ataques Realizados", use_container_width=True):
+    st.session_state["view"] = "attacks_logs"
     st.rerun()
 
 st.sidebar.divider()
@@ -1862,11 +2123,11 @@ with st.sidebar.expander("Detalhes", expanded=False):
     else:
         st.write("Aleatório: nenhum em execução.")
     if running_super:
-        st.write("Super:", ", ".join(name for name, _ in running_super))
+        st.write("Parametrizável:", ", ".join(name for name, _ in running_super))
     else:
-        st.write("Super: nenhum em execução.")
+        st.write("Parametrizável: nenhum em execução.")
 
-if st.sidebar.button("Controle de clientes benignos", type="secondary"):
+if st.sidebar.button("Controle de clientes benignos", use_container_width=True):
     st.session_state["view"] = "benign_clients"
     st.rerun()
 
@@ -1875,9 +2136,19 @@ st.sidebar.divider()
 # -----------------------------
 # Execução / Stop / Status do ataque
 # -----------------------------
-def run_attack_from_spec(spec: AttackSpec, resolved_params: Dict[str, Any], capture_enabled: bool = True) -> Dict[str, Any]:
+def run_attack_from_spec(
+    spec: AttackSpec,
+    resolved_params: Dict[str, Any],
+    capture_enabled: bool = True,
+    max_runtime_s: int = 15,
+) -> Dict[str, Any]:
     """
     Função de execução dos ataques (controle de containers)
+
+    - Inicia o container do ataque (docker run -d --rm ...)
+    - (Opcional) Inicia captura tcpdump em docker0 e encerra automaticamente quando o container terminar
+    - Encerra o container após `max_runtime_s` se ainda estiver em execução (watchdog)
+    - Registra logs em logs/attacks.log (best-effort)
 
     :param spec: Difinição dos parâmetros do ataque vindos do registry
     :type spec: AttackSpec
@@ -1885,30 +2156,86 @@ def run_attack_from_spec(spec: AttackSpec, resolved_params: Dict[str, Any], capt
     :type resolved_params: Dict[str, Any]
     :param capture_enabled: Booleano para ativar automaticamente ou não a captura junto, padrão é True
     :type capture_enabled: bool, optional
+    :param max_runtime_s: Tempo máximo (s) para encerrar o container caso ainda esteja rodando
+    :type max_runtime_s: int
     :return: Dicionário de parâmetros
     :rtype: Dict[str, Any]
     """
     if not docker_available():
         return {"ok": False, "stderr": "Docker indisponível no host do Streamlit.", "cmd": [], "returncode": 1}
 
-    if not capture_enabled:
+    # garante valor razoável
+    try:
+        max_runtime_s = int(max_runtime_s)
+    except Exception:
+        max_runtime_s = int(getattr(spec, "max_runtime_s", 15) or 15)
+    if max_runtime_s < 1:
+        max_runtime_s = 1
+
+    # caminho da captura (se habilitado)
+    pcap_path = build_capture_path(spec.id) if capture_enabled else None
+
+    def _start_attack_only() -> Dict[str, Any]:
         with st.spinner("Executando ataque..."):
             result = spec.runner(resolved_params)
+
+        # watchers/logs
+        container_ref = result.get("container_id") or spec.container_name
+        start_attack_logs_watcher(
+            container_ref,
+            spec,
+            cmd=result.get("cmd"),
+            pcap_path=str(pcap_path) if pcap_path else None,
+            max_runtime_s=max_runtime_s,
+            capture_enabled=capture_enabled,
+        )
+        start_attack_timeout_watchdog(container_ref, spec, max_runtime_s=max_runtime_s)
+
+        result["max_runtime_s"] = max_runtime_s
         result["capture"] = {"enabled": False}
         return result
 
-    pcap_path = build_capture_path(spec.id)
+    if not capture_enabled:
+        return _start_attack_only()
+
+    # captura habilitada
     cap = start_tcpdump_capture(pcap_path, iface="docker0")
     if not cap.get("ok"):
-        return {"ok": False, "stderr": f"Falha ao iniciar captura: {cap.get('stderr') or ''}".strip(), "cmd": cap.get("cmd", []), "returncode": 1, "capture": {"enabled": True, "ok": False, "pcap_path": str(pcap_path), **cap}}
+        return {
+            "ok": False,
+            "stderr": f"Falha ao iniciar captura: {cap.get('stderr') or ''}".strip(),
+            "cmd": cap.get("cmd", []),
+            "returncode": 1,
+            "capture": {"enabled": True, "ok": False, "pcap_path": str(pcap_path), **cap},
+        }
 
     tcpdump_p = cap["popen"]
     with st.spinner("Executando ataque e capturando tráfego..."):
         attack_result = spec.runner(resolved_params)
 
+    # watchers/logs (mesmo em falha, tenta)
+    container_ref = attack_result.get("container_id") or spec.container_name
+    start_attack_logs_watcher(
+        container_ref,
+        spec,
+        cmd=attack_result.get("cmd"),
+        pcap_path=str(pcap_path),
+        max_runtime_s=max_runtime_s,
+        capture_enabled=True,
+    )
+    start_attack_timeout_watchdog(container_ref, spec, max_runtime_s=max_runtime_s)
+
+    attack_result["max_runtime_s"] = max_runtime_s
+
     if not attack_result.get("ok"):
         stop_info = stop_tcpdump_capture(tcpdump_p)
-        attack_result["capture"] = {"enabled": True, "ok": True, "pcap_path": str(pcap_path), "tcpdump_cmd": cap.get("cmd"), "stop": stop_info}
+        attack_result["capture"] = {
+            "enabled": True,
+            "ok": True,
+            "pcap_path": str(pcap_path),
+            "tcpdump_cmd": cap.get("cmd"),
+            "stop": stop_info,
+        }
         return attack_result
 
     container_id = attack_result.get("container_id")
@@ -1921,7 +2248,14 @@ def run_attack_from_spec(spec: AttackSpec, resolved_params: Dict[str, Any], capt
         wait_err = "container_id não retornado; não foi possível aguardar término."
 
     stop_info = stop_tcpdump_capture(tcpdump_p)
-    attack_result["capture"] = {"enabled": True, "ok": True, "pcap_path": str(pcap_path), "tcpdump_cmd": cap.get("cmd"), "wait_error": wait_err, "stop": stop_info}
+    attack_result["capture"] = {
+        "enabled": True,
+        "ok": True,
+        "pcap_path": str(pcap_path),
+        "tcpdump_cmd": cap.get("cmd"),
+        "wait_error": wait_err,
+        "stop": stop_info,
+    }
     return attack_result
 
 def show_last_attack_result(spec: AttackSpec) -> None:
@@ -2056,6 +2390,55 @@ def validate_cidr(value: str) -> bool:
     except Exception:
         return False
 
+_FQDN_RE = re.compile(
+    r"^(?=.{1,253}$)(?!-)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}\.?$"
+)
+_HOST_RE = re.compile(
+    r"^(?=.{1,253}$)(?!-)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.(?!-)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\.?$"
+)
+
+def validate_fqdn(value: str, *, allow_single_label: bool = False) -> bool:
+    """
+    Valida hostname/FQDN.
+    - allow_single_label=False: exige pelo menos um ponto e TLD (ex.: example.com)
+    - allow_single_label=True: permite hostnames sem ponto (ex.: "router", "localhost")
+
+    :param value: Valor para teste
+    :type value: str
+    :param allow_single_label: Booleano para permitir nomes simples, padrão é False
+    :type allow_single_label: bool, optional
+    :return: True ou False se é válido ou não
+    :rtype: bool
+    """
+    v = value.strip()
+    if not v:
+        return False
+    if " " in v or "://" in v or "/" in v:
+        return False
+
+    if re.fullmatch(r"[0-9.]+", v) or ":" in v:
+        return False
+
+    if v.lower() == "localhost":
+        return True
+
+    if allow_single_label:
+        return _HOST_RE.match(v) is not None
+    return _FQDN_RE.match(v) is not None
+
+def validate_ip_or_fqdn(value: str, *, allow_single_label: bool = False) -> bool:
+    """
+    Valida input do usuário para ver se é um IP ou FQDN válido
+
+    :param value: Input do alvo
+    :type value: str
+    :param allow_single_label: Booleano para permitir nomes simples, padrão é False
+    :type allow_single_label: bool, optional
+    :return: True ou False se é válido ou não
+    :rtype: bool
+    """
+    return validate_ip(value) or validate_fqdn(value, allow_single_label=allow_single_label)
+
 def resolve_placeholder(p: ParamSpec, host_ip: str) -> str:
     """
     Definição de placeholders (sugestões de preenchimento) com base nas especificações do registry
@@ -2072,45 +2455,92 @@ def resolve_placeholder(p: ParamSpec, host_ip: str) -> str:
         return ""
     return host_ip if ph == "__HOST_IP__" else str(ph)
 
-def render_params_form(spec: AttackSpec, host_ip: str) -> Tuple[bool, Dict[str, Any], bool]:
+def render_params_form(spec: AttackSpec, host_ip: str) -> Tuple[bool, Dict[str, Any], bool, int]:
     """
     Rederização do formulários de parâmetros de um ataque selecionado
+
+    Retorna (submitted, resolved_params, capture_enabled, max_runtime_s).
 
     :param spec: Tipo de parâmetro
     :type spec: AttackSpec
     :param host_ip: IP sugerido
     :type host_ip: str
     :return: Para cada tipo de ataque, um tipo de sugestão de parâmetros para preenchimento
-    :rtype: Tuple[bool, Dict[str, Any], bool]
+    :rtype: Tuple[bool, Dict[str, Any], bool, int]
     """
     resolved: Dict[str, Any] = {}
+    runtime_default = int(getattr(spec, "max_runtime_s", 15) or 15)
+
     if not spec.params:
         if spec.no_params_note:
             st.info(spec.no_params_note)
+
+        max_runtime_s = int(
+            st.number_input(
+                "Tempo máximo de execução (s)",
+                min_value=1,
+                max_value=86400,
+                value=runtime_default,
+                step=1,
+                key=f"maxrt_{spec.id}",
+            )
+        )
+
         c1, c2 = st.columns([3, 2])
-        capture_enabled = c2.toggle("Iniciar captura de pacotes junto do ataque", value=True, key=f"cap_toggle_{spec.id}")
+        capture_enabled = c2.toggle(
+            "Iniciar captura de pacotes junto do ataque",
+            value=True,
+            key=f"cap_toggle_{spec.id}",
+        )
         submitted = c1.button("Iniciar ataque", key=f"start_noparams_{spec.id}")
-        return submitted, resolved, capture_enabled
+        return submitted, resolved, capture_enabled, max_runtime_s
 
     with st.form(f"form_{spec.id}", clear_on_submit=False):
         for p in spec.params:
             ph = resolve_placeholder(p, host_ip)
             if p.kind == "port":
                 default_port = int(p.default) if p.default is not None else (int(ph) if ph.isdigit() else 1)
-                value = st.number_input(p.label, min_value=1, max_value=65535, value=default_port, step=1, key=f"{spec.id}_{p.key}")
+                value = st.number_input(
+                    p.label,
+                    min_value=1,
+                    max_value=65535,
+                    value=default_port,
+                    step=1,
+                    key=f"{spec.id}_{p.key}",
+                )
                 resolved[p.key] = int(value)
             else:
-                value = st.text_input(p.label, placeholder=ph if ph else None, value="" if p.default is None else str(p.default), key=f"{spec.id}_{p.key}").strip()
+                value = st.text_input(
+                    p.label,
+                    placeholder=ph if ph else None,
+                    value="" if p.default is None else str(p.default),
+                    key=f"{spec.id}_{p.key}",
+                ).strip()
                 if not value and ph:
                     value = ph
                     st.caption(f'Campo "{p.label}" vazio; usando valor sugerido: {ph}')
                 resolved[p.key] = value
 
+        max_runtime_s = int(
+            st.number_input(
+                "Tempo máximo de execução (s)",
+                min_value=1,
+                max_value=86400,
+                value=runtime_default,
+                step=1,
+                key=f"maxrt_{spec.id}",
+            )
+        )
+
         c1, c2 = st.columns([3, 2])
         submitted = c1.form_submit_button("Iniciar ataque")
-        capture_enabled = c2.toggle("Iniciar captura de pacotes junto do ataque", value=True, key=f"cap_toggle_{spec.id}")
+        capture_enabled = c2.toggle(
+            "Iniciar captura de pacotes junto do ataque",
+            value=True,
+            key=f"cap_toggle_{spec.id}",
+        )
 
-    return submitted, resolved, capture_enabled
+    return submitted, resolved, capture_enabled, max_runtime_s
 
 def validate_params(spec: AttackSpec, params: Dict[str, Any]) -> List[str]:
     """
@@ -2127,7 +2557,7 @@ def validate_params(spec: AttackSpec, params: Dict[str, Any]) -> List[str]:
     for p in spec.params:
         v = params.get(p.key, "")
         if p.kind == "ip":
-            if not v or not validate_ip(str(v)):
+            if not v or not validate_ip_or_fqdn(str(v), allow_single_label=False):
                 errors.append(f'Campo "{p.label}" inválido.')
         elif p.kind == "cidr":
             if not v or not validate_cidr(str(v)):
@@ -2189,7 +2619,7 @@ def category_tab_ui(category_name: str, attacks: List[AttackSpec]) -> None:
 
     with right:
         st.markdown("### Parâmetros")
-        submitted, resolved, capture_enabled = render_params_form(spec, host_ip)
+        submitted, resolved, capture_enabled, max_runtime_s = render_params_form(spec, host_ip)
         show_last_attack_result(spec)
 
         if submitted:
@@ -2198,7 +2628,7 @@ def category_tab_ui(category_name: str, attacks: List[AttackSpec]) -> None:
                 for e in errors:
                     st.error(e)
             else:
-                result = run_attack_from_spec(spec, resolved, capture_enabled=capture_enabled)
+                result = run_attack_from_spec(spec, resolved, capture_enabled=capture_enabled, max_runtime_s=max_runtime_s)
                 st.session_state["last_attack_result"][spec.id] = result
                 st.rerun()
 
@@ -2210,6 +2640,9 @@ if st.session_state["view"] == "benign_clients":
     st.stop()
 if st.session_state["view"] == "server_logs":
     render_server_logs_view()
+    st.stop()
+if st.session_state.get("view") == "attacks_logs":
+    render_attacks_logs_view()
     st.stop()
 if st.session_state["view"] == "captures":
     render_captures_view()
