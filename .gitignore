@@ -4,6 +4,7 @@ __pycache__/
 .git/
 old/
 old/.*
+logs/*.log
 captures/*.pcap
 features/*.csv
 datasets/*.csv
@@ -14,5 +15,6 @@ NTLFlowLyzer/
 NTLFlowLyzer/.*
 /NTLFlowLyzer
 ds-orig.py
+ferramenta_old*
 docs/build
 docs/README.md

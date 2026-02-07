@@ -68,8 +68,8 @@ docker build -t sbrc26-ataque-web-post-bruteforce -f atacantes/web-post-brutefor
 docker build -t sbrc26-ataque-web-simple-scanner -f atacantes/web-simple-scanner/Dockerfile .
 docker build -t sbrc26-ataque-web-wide-scanner -f atacantes/web-wide-scanner/Dockerfile .
 docker build -t sbrc26-ataque-xss-scanner -f atacantes/xss-scanner/Dockerfile .
-docker build -t sbrc26-clientes-aleatorio -f clientes/cliente-aleatorio/Dockerfile .
-docker build -t sbrc26-clientes-super -f clientes/cliente-super/Dockerfile .
+docker build --no-cache -t sbrc26-clientes-aleatorio -f clientes/cliente-aleatorio/Dockerfile .
+docker build --no-cache -t sbrc26-clientes-super -f clientes/cliente-super/Dockerfile .
 echo "Servidor Web: $( docker container inspect $( docker ps -a | grep 'sbrc26-servidor-http-server:latest' | awk '{print $NF}' ) | grep 'IPAddress' | tail -n1 | awk -F'"' '{print $4}' )"
 echo "Servidor SSH: $( docker container inspect $( docker ps -a | grep 'sbrc26-servidor-ssh-server:latest' | awk '{print $NF}' ) | grep 'IPAddress' | tail -n1 | awk -F'"' '{print $4}' )"
 echo "SMB Server: $( docker container inspect $( docker ps -a | grep 'sbrc26-servidor-smb-server:latest' | awk '{print $NF}' ) | grep 'IPAddress' | tail -n1 | awk -F'"' '{print $4}' )"

@@ -7,6 +7,7 @@ import socket
 import subprocess
 import time
 import re
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Union, Optional, Tuple
@@ -35,6 +36,9 @@ CAPTURES_DIR = Path("captures")
 FEATURES_DIR = Path("features")
 DATASETS_DIR = Path("datasets")
 TMP_DIR = Path(".tmp")
+
+LOGS_DIR = Path("logs")
+BENIGN_CLIENTS_LOG = LOGS_DIR / "benign_clients.log"
 
 def build_dataset_path_for_capture(pcap_path: Path) -> Path:
     """
@@ -127,11 +131,131 @@ def _run(cmd: List[str]) -> Tuple[int, str, str]:
     stderr = (p.stderr or b"").decode("utf-8", errors="replace").strip()
     return p.returncode, stdout, stderr
 
+
+# -----------------------------
+# Logs centralizados: clientes benignos
+# -----------------------------
+_BENIGN_LOG_LOCK = threading.Lock()
+
+def _ensure_logs_dir() -> None:
+    """Garante diretório logs/."""
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+def _append_benign_log(line: str) -> None:
+    """Append (thread-safe) em logs/benign_clients.log."""
+    _ensure_logs_dir()
+    if not line.endswith("\n"):
+        line += "\n"
+    with _BENIGN_LOG_LOCK:
+        with BENIGN_CLIENTS_LOG.open("a", encoding="utf-8", errors="replace") as f:
+            f.write(line)
+
+def _log_event(event: str, **fields: Any) -> None:
+    """Loga um evento em linha única com timestamp."""
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    extra = " ".join([f"{k}={v}" for k, v in fields.items() if v is not None and str(v) != ""])
+    _append_benign_log(f"[{ts}] {event} {extra}".rstrip())
+
+def tail_text_file(path: Path, n_lines: int = 400, max_bytes: int = 256 * 1024) -> str:
+    """Lê as últimas N linhas (aprox) de um arquivo texto, limitando bytes."""
+    if not path.exists():
+        return ""
+    try:
+        data = path.read_bytes()
+        if len(data) > max_bytes:
+            data = data[-max_bytes:]
+        txt = data.decode("utf-8", errors="replace")
+        lines = txt.splitlines()
+        return "\n".join(lines[-int(n_lines):])
+    except Exception as e:
+        return f"[erro ao ler arquivo de log] {e}"
+
+def start_benign_logs_watcher(container_ref: str, kind: str, *, container_name: Optional[str] = None, cmd: Optional[List[str]] = None) -> None:
+    """
+    Segue `docker logs -f --timestamps` e grava em logs/benign_clients.log.
+    Ao finalizar (ou se já tiver finalizado), tenta registrar exit_code e remover o container.
+    """
+
+    def _worker() -> None:
+        ref = container_ref or (container_name or "")
+        name = container_name or container_ref
+
+        _log_event("BENIGN_CLIENT_START", kind=kind, name=name)
+        if cmd:
+            _append_benign_log(f"[{name}] cmd: {' '.join(cmd)}")
+
+        logs_cmd = ["docker", "logs", "-f", "--timestamps", ref]
+
+        try:
+            p = subprocess.Popen(logs_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            # stdout stream
+            if p.stdout:
+                for raw in iter(p.stdout.readline, b""):
+                    if not raw:
+                        break
+                    line = raw.decode("utf-8", errors="replace").rstrip("\n")
+                    _append_benign_log(f"[{name}] {line}")
+
+            p.wait()
+
+            # stderr (se houver)
+            err_bytes = b""
+            if p.stderr:
+                try:
+                    err_bytes = p.stderr.read() or b""
+                except Exception:
+                    err_bytes = b""
+            if err_bytes:
+                _append_benign_log(f"[{name}] [docker-logs-stderr] {err_bytes.decode('utf-8', errors='replace').strip()}")
+
+        except Exception as e:
+            _append_benign_log(f"[{name}] [watcher-error] {e}")
+
+        # exit code
+        exit_code: Optional[str] = None
+        rc2, out2, _ = _run(["docker", "wait", ref])
+        if rc2 == 0 and out2.strip().isdigit():
+            exit_code = out2.strip()
+        else:
+            rc3, out3, _ = _run(["docker", "inspect", "-f", "{{.State.ExitCode}}", ref])
+            if rc3 == 0 and out3.strip().isdigit():
+                exit_code = out3.strip()
+
+        _log_event("BENIGN_CLIENT_END", kind=kind, name=name, exit_code=exit_code)
+
+        # cleanup: remove (best-effort)
+        _run(["docker", "rm", "-f", name])
+
+    threading.Thread(target=_worker, daemon=True).start()
+
+def snapshot_benign_container_logs(names: List[str], kind: str) -> None:
+    """Captura logs atuais (não-follow) antes de remover containers."""
+    if not names:
+        return
+    for name in names:
+        _log_event("BENIGN_CLIENT_SNAPSHOT", kind=kind, name=name)
+        rc, out, err = _run(["docker", "logs", "--timestamps", name])
+        if out:
+            for line in out.splitlines():
+                _append_benign_log(f"[{name}] {line}")
+        if err:
+            _append_benign_log(f"[{name}] [docker-logs-stderr] {err}")
+
+
 # Definições para o spawn de clientes benignos
-CLIENT_NAME_RE = re.compile(r"^sbrc26-cliente-(\d{1,2})$")
-CLIENT_IMAGE = "sbrc26-clientes:latest"
-CLIENT_NAME_PREFIX = "sbrc26-cliente-"
-CLIENT_MAX_RUNNING = 10
+
+# Cliente benigno ALEATÓRIO (sobe até 10 instâncias, com nomes numerados)
+RANDOM_CLIENT_NAME_RE = re.compile(r"^sbrc26-cliente-aleatorio-?(\d{1,2})$")
+RANDOM_CLIENT_IMAGE = "sbrc26-clientes-aleatorio:latest"
+RANDOM_CLIENT_NAME_PREFIX = "sbrc26-cliente-aleatorio-"
+RANDOM_CLIENT_MAX_RUNNING = 10
+
+# Cliente benigno SUPER (parametrizável; permite múltiplas instâncias numeradas)
+SUPER_CLIENT_NAME_RE = re.compile(r"^sbrc26-cliente-super-?(\d{1,2})$")
+SUPER_CLIENT_FIXED_NAMES = {"sbrc26-clientes-super", "sbrc26-cliente-super"}  # compat
+SUPER_CLIENT_IMAGE = "sbrc26-clientes-super:latest"
+SUPER_CLIENT_NAME_PREFIX = "sbrc26-cliente-super-"
+SUPER_CLIENT_MAX_RUNNING = 10
 
 def list_running_benign_clients() -> List[Tuple[str, int]]:
     """
@@ -151,7 +275,7 @@ def list_running_benign_clients() -> List[Tuple[str, int]]:
     items: List[Tuple[str, int]] = []
     for name in out.splitlines():
         name = name.strip()
-        m = CLIENT_NAME_RE.match(name)
+        m = RANDOM_CLIENT_NAME_RE.match(name)
         if m:
             items.append((name, int(m.group(1))))
     # ordena lista simples por número
@@ -187,10 +311,11 @@ def remove_all_benign_clients(running_clients: List[Tuple[str, int]]) -> dict:
         return {"ok": True, "stdout": "Nenhum cliente para remover.", "cmd": []}
 
     names = [name for name, _ in running_clients]
+    # snapshot de logs antes de remover
+    snapshot_benign_container_logs(names, "random")
     cmd = ["docker", "rm", "-f", *names]
     rc, out, err = _run(cmd)
     return {"ok": rc == 0, "stdout": out, "stderr": err, "cmd": cmd, "returncode": rc}
-
 
 def start_one_benign_client(running_clients: List[Tuple[str, int]]) -> dict:
     """
@@ -206,7 +331,10 @@ def start_one_benign_client(running_clients: List[Tuple[str, int]]) -> dict:
     if not docker_available():
         return {"ok": False, "stderr": "Docker indisponível.", "cmd": []}
 
-    if len(running_clients) >= CLIENT_MAX_RUNNING:
+    # Remove containers benignos que ficaram em Exited/Created/etc (evita conflito de nome)
+    purge_stale_benign_containers()
+
+    if len(running_clients) >= RANDOM_CLIENT_MAX_RUNNING:
         return {"ok": False, "stderr": "Limite de 10 clientes benignos já atingido.", "cmd": []}
 
     server_ips, missing = get_required_server_ips()
@@ -218,11 +346,19 @@ def start_one_benign_client(running_clients: List[Tuple[str, int]]) -> dict:
         }
 
     y = next_benign_client_number(running_clients)
-    name = f"{CLIENT_NAME_PREFIX}{y}"
+    all_names = _all_container_names()
+    name = f"{RANDOM_CLIENT_NAME_PREFIX}{y}"
+    while name in all_names:
+        y += 1
+        name = f"{RANDOM_CLIENT_NAME_PREFIX}{y}"
 
-    # 7 argumentos na ordem definida
-    cmd = ["docker", "run", "-d", "--rm", "--name", name, CLIENT_IMAGE, *server_ips]
+    # 7 argumentos em ordem dos servidores
+    cmd = ["docker", "run", "-d", "--name", name, RANDOM_CLIENT_IMAGE, *server_ips]
     rc, out, err = _run(cmd)
+
+    container_id = (out.strip().splitlines()[0] if out else "").strip()
+    if rc == 0:
+        start_benign_logs_watcher(container_id or name, "random", container_name=name, cmd=cmd)
 
     return {
         "ok": rc == 0,
@@ -232,6 +368,199 @@ def start_one_benign_client(running_clients: List[Tuple[str, int]]) -> dict:
         "returncode": rc,
         "container_name": name,
         "server_ips": server_ips,
+    }
+
+def list_running_super_clients() -> List[Tuple[str, int]]:
+    """
+    Retorna lista [(container_name, n)] apenas de containers RUNNING que sejam
+    clientes benignos SUPER (parametrizáveis).
+    Aceita nomes numerados (sbrc26-cliente-super-<n> ou sem hífen) e nomes fixos
+    (sbrc26-clientes-super / sbrc26-cliente-super).
+
+    :return: Lista de containers de clientes benignos super que estão rodando
+    :rtype: List[Tuple[str, int]]
+    """
+    if not docker_available():
+        return []
+
+    rc, out, _ = _run(["docker", "ps", "--format", "{{.Names}}"])
+    if rc != 0:
+        return []
+
+    items: List[Tuple[str, int]] = []
+    for name in out.splitlines():
+        name = name.strip()
+        if not name:
+            continue
+        if name in SUPER_CLIENT_FIXED_NAMES:
+            items.append((name, 0))
+            continue
+        m = SUPER_CLIENT_NAME_RE.match(name)
+        if m:
+            items.append((name, int(m.group(1))))
+
+    items.sort(key=lambda x: x[1])
+    return items
+
+# -----------------------------
+# Limpeza automática de containers benignos (stale)
+# -----------------------------
+_BENIGN_RANDOM_RE = re.compile(rf"^{re.escape(RANDOM_CLIENT_NAME_PREFIX)}(\d{{1,2}})$")
+_BENIGN_SUPER_RE = re.compile(rf"^{re.escape(SUPER_CLIENT_NAME_PREFIX)}(\d{{1,2}})$")
+
+def _list_containers_by_regex(name_re: "re.Pattern") -> List[Tuple[str, str]]:
+    """
+    Retorna [(name, status)] para containers (docker ps -a) cujo nome casa com name_re.
+    """
+    if not docker_available():
+        return []
+    rc, out, _ = _run(["docker", "ps", "-a", "--format", "{{.Names}}\t{{.Status}}"])
+    if rc != 0:
+        return []
+    rows: List[Tuple[str, str]] = []
+    for line in out.splitlines():
+        if "\t" not in line:
+            continue
+        name, status = line.split("\t", 1)
+        name = name.strip()
+        status = status.strip()
+        if name_re.match(name):
+            rows.append((name, status))
+    return rows
+
+def _is_running_status(status: str) -> bool:
+    s = (status or "").strip().lower()
+    return s.startswith("up") or s.startswith("restarting") or s.startswith("paused")
+
+def purge_stale_benign_containers() -> Dict[str, Any]:
+    """
+    Remove containers benignos que não estejam rodando (Exited/Created/Dead/etc).
+    Evita conflito de nome quando o app reinicia e sobram containers antigos.
+    """
+    removed: List[str] = []
+    errors: List[str] = []
+
+    for kind, name_re in [("random", _BENIGN_RANDOM_RE), ("super", _BENIGN_SUPER_RE)]:
+        for name, status in _list_containers_by_regex(name_re):
+            if _is_running_status(status):
+                continue
+            rc, out, err = _run(["docker", "rm", "-f", name])
+            if rc == 0:
+                removed.append(name)
+                _log_event("cleanup_stale", kind=kind, container=name, status=status)
+            else:
+                errors.append(f"{name}: {err or out}".strip())
+
+    return {"ok": len(errors) == 0, "removed": removed, "errors": errors}
+
+def _all_container_names() -> set:
+    """
+    Retorna todos os containers
+
+    :return: Todos os noms de containers
+    :rtype: set
+    """
+    if not docker_available():
+        return set()
+    rc, out, _ = _run(["docker", "ps", "-a", "--format", "{{.Names}}"])
+    if rc != 0:
+        return set()
+    return set(x.strip() for x in out.splitlines() if x.strip())
+
+def next_super_client_number(running_clients: List[Tuple[str, int]]) -> int:
+    """
+    Próximo número = (maior número em execução) + 1.
+    Se não houver nenhum numerado, começa em 1.
+
+    :param running_clients: Lista de containers super em execução
+    :type running_clients: List[Tuple[str, int]]
+    :return: Retorna número do próximo cliente super
+    :rtype: int
+    """
+    nums = [n for _, n in running_clients if n and n > 0]
+    return (max(nums) + 1) if nums else 1
+
+def remove_all_super_clients(running_clients: List[Tuple[str, int]]) -> dict:
+    """
+    docker rm -f em todos os containers super em execução.
+
+    :param running_clients: Lista de containers super em execução
+    :type running_clients: List[Tuple[str, int]]
+    :return: Status da execução
+    :rtype: dict
+    """
+    if not docker_available():
+        return {"ok": False, "stderr": "Docker indisponível.", "cmd": []}
+
+    if not running_clients:
+        return {"ok": True, "stdout": "Nenhum cliente super para remover.", "cmd": []}
+
+    names = [name for name, _ in running_clients]
+    # snapshot de logs antes de remover
+    snapshot_benign_container_logs(names, "super")
+    cmd = ["docker", "rm", "-f", *names]
+    rc, out, err = _run(cmd)
+    return {"ok": rc == 0, "stdout": out, "stderr": err, "cmd": cmd, "returncode": rc}
+
+def start_one_super_client(
+    service: str,
+    target_ip: str,
+    target_port: int,
+    max_accesses: int,
+    interval_s: int,
+    max_total_s: int,
+    running_clients: Optional[List[Tuple[str, int]]] = None,
+) -> dict:
+    """
+    Spawna um cliente benigno SUPER (parametrizável), em modo detached + --rm.
+
+    Exemplo:
+      docker run -d --rm --name sbrc26-cliente-super-1 sbrc26-clientes-super:latest web 172.17.0.2 443 10 1 15
+
+    :return: Dicionário com status e comando executado
+    :rtype: dict
+    """
+    if not docker_available():
+        return {"ok": False, "stderr": "Docker indisponível.", "cmd": []}
+
+    # Remove containers benignos que ficaram em Exited/Created/etc (evita conflito de nome)
+    purge_stale_benign_containers()
+
+    # Recalcula a lista após limpeza (evita considerar containers antigos)
+    running_clients = list_running_super_clients()
+    if len(running_clients) >= SUPER_CLIENT_MAX_RUNNING:
+        return {"ok": False, "stderr": "Limite de clientes super já atingido.", "cmd": []}
+
+    n = next_super_client_number(running_clients)
+    all_names = _all_container_names()
+    name = f"{SUPER_CLIENT_NAME_PREFIX}{n}"
+    while name in all_names:
+        n += 1
+        name = f"{SUPER_CLIENT_NAME_PREFIX}{n}"
+
+    cmd = [
+        "docker", "run", "-d",
+        "--name", name,
+        SUPER_CLIENT_IMAGE,
+        str(service).strip(),
+        str(target_ip).strip(),
+        str(int(target_port)),
+        str(int(max_accesses)),
+        str(int(interval_s)),
+        str(int(max_total_s)),
+    ]
+
+    rc, out, err = _run(cmd)
+    container_id = (out.strip().splitlines()[0] if out else "").strip()
+    if rc == 0:
+        start_benign_logs_watcher(container_id or name, "super", container_name=name, cmd=cmd)
+    return {
+        "ok": rc == 0,
+        "stdout": out,
+        "stderr": err,
+        "cmd": cmd,
+        "returncode": rc,
+        "container_name": name,
     }
 
 # -----------------------------
@@ -287,7 +616,7 @@ st.caption(
     "e clique em Iniciar ataque para acionar a execução via Docker."
 )
 
-# Tentativa de deixar mais agradável o impilhamento de funcionalidades na tela
+# Tentativa de deixar mais agradável as funcionalidades em tela
 st.markdown(
     '''
     <style>
@@ -440,7 +769,6 @@ def _container_ids_by_ancestor(image: str) -> List[str]:
     if not ids and ":" not in image:
         rc, out, _ = _run(["docker", "ps", "-a", "-q", "--filter", f"ancestor={image}:latest"])
         ids = [x for x in out.splitlines() if x.strip()] if rc == 0 else []
-
     return ids
 
 def _inspect(cont_id: str) -> Optional[dict]:
@@ -536,7 +864,6 @@ def get_running_container_id_by_ancestor(image_base: str) -> Optional[str]:
 
     return None
 
-
 def get_container_ip_by_id(cid: str) -> Optional[str]:
     """
     IP do container (bridge). Se tiver múltiplas networks, pega o primeiro IP encontrado.
@@ -557,7 +884,6 @@ def get_container_ip_by_id(cid: str) -> Optional[str]:
         return None
     ips = [x for x in out.strip().split() if x]
     return ips[0] if ips else None
-
 
 def get_required_server_ips() -> Tuple[Optional[List[str]], List[str]]:
     """
@@ -632,7 +958,6 @@ def fetch_server_logs(image_base: str, tail_lines: int = 200, prefer_alt: bool =
 
     return {"ok": False, "mode": "error", "cmd_display": "", "stdout": "", "stderr": f"Modo de log desconhecido: {mode}", "returncode": 1}
 
-
 def _clip_text(s: str, max_chars: int = 120_000) -> str:
     """
     Definição de retorno máximo de saída textual
@@ -702,6 +1027,324 @@ def render_server_logs_view() -> None:
     if err:
         with st.expander("stderr", expanded=False):
             st.code(err, language="text")
+
+
+# -----------------------------
+# Clientes benignos (view)
+# -----------------------------
+def _render_last_client_action() -> None:
+    res = st.session_state.get("last_client_action")
+    if not res:
+        return
+    st.markdown("### Última ação")
+    if res.get("ok"):
+        st.success(res.get("title", "Ação executada com sucesso."))
+    else:
+        st.error(res.get("title", "Falha na ação."))
+    if res.get("cmd"):
+        st.caption("Comando executado:")
+        st.code(" ".join(res["cmd"]), language="bash")
+    if res.get("stdout"):
+        with st.expander("stdout", expanded=False):
+            st.code(res["stdout"], language="text")
+    if res.get("stderr"):
+        with st.expander("stderr", expanded=False):
+            st.code(res["stderr"], language="text")
+
+def render_benign_clients_view() -> None:
+    st.subheader("Controle de clientes benignos")
+
+    top = st.columns([1, 1, 3])
+    if top[0].button("Voltar"):
+        st.session_state["view"] = "main"
+        st.rerun()
+    if top[1].button("Atualizar"):
+        st.rerun()
+
+    if not docker_available():
+        st.error("Docker indisponível no host do Streamlit.")
+        return
+
+    tabs = st.tabs(["Cliente de acessos aleatórios", "Cliente parametrizável"])
+
+    # -------------------------
+    # Cliente aleatório
+    # -------------------------
+    with tabs[0]:
+        running = list_running_benign_clients()
+        x = len(running)
+
+        server_ips, missing = get_required_server_ips()
+        servers_ok = (server_ips is not None)
+
+        st.write(f"Clientes em execução (de acessos aleatórios): **{x}**")
+        if not servers_ok:
+            st.warning(
+                "Não é possível iniciar novos clientes aleatórios: "
+                f"servidor(es) não estão rodando/sem IP: {', '.join(missing)}"
+            )
+
+        remove_disabled = (x == 0) or (not docker_available())
+        start_disabled = (x >= RANDOM_CLIENT_MAX_RUNNING) or (not docker_available()) or (not servers_ok)
+
+        c1, c2 = st.columns([1, 1], gap="small")
+        if c1.button("Remover todos os clientes (de acessos aleatórios)", disabled=remove_disabled, type="secondary", use_container_width=True):
+            res = remove_all_benign_clients(running)
+            res["title"] = "Clientes aleatórios removidos." if res.get("ok") else "Falha ao remover clientes aleatórios."
+            st.session_state["last_client_action"] = res
+            st.rerun()
+
+        if c2.button("Iniciar um cliente (de acessos aleatórios)", disabled=start_disabled, type="primary", use_container_width=True):
+            res = start_one_benign_client(running)
+            res["title"] = f"Iniciado: {res.get('container_name')}" if res.get("ok") else "Falha ao iniciar cliente aleatório."
+            st.session_state["last_client_action"] = res
+            st.rerun()
+
+        if running:
+            with st.expander("Ver containers em execução (aleatório)", expanded=False):
+                st.write(", ".join(name for name, _ in running))
+        _render_last_client_action()
+
+        st.divider()
+        st.caption("**Cliente de acessos aleatórios**: Inicia um container que faz acessos \"simples\" aos serviços dos servidores alvos, em ordem aleatória e com período aleatório (entre 1 e 5 segundos). ")
+        st.caption("**Cliente parametrizável**: Inicia um container com servidor alvo específico e gera acessos \"simples\" com a periodicidade, pelo tempo parametrizado.")
+
+    # -------------------------
+    # Cliente parametrizável
+    # -------------------------
+    with tabs[1]:
+        running = list_running_super_clients()
+        x = len(running)
+
+        st.write(f"Em execução (parametrizável): **{x}**")
+
+        c1, c2 = st.columns([1, 1], gap="small")
+        remove_disabled = (x == 0) or (not docker_available())
+
+        if c1.button("Remover todos os clientes (parametrizáveis)", disabled=remove_disabled, type="secondary", use_container_width=True):
+            res = remove_all_super_clients(running)
+            res["title"] = "Clientes parametrizáveis removidos." if res.get("ok") else "Falha ao remover clientes parametrizáveis."
+            st.session_state["last_client_action"] = res
+            st.rerun()
+
+        # Formulário do cliente parametrizável
+        st.markdown("### Executar cliente (parametrizável)")
+        rows = get_servers_status()
+        ip_map_local = {r["Servidor"]: r["IP"] for r in rows}
+
+        SUPER_SERVICE_SPECS: Dict[str, Dict[str, Any]] = {
+            "web": {
+                "label": "WEB (HTTP/HTTPS)",
+                "desc": "curl faz um GET em httpx://aaa.bbb.ccc.ddd/ (HTTPS se porta=443, senão HTTP). Padrões: 80/443.",
+                "default_port": 80,
+                "server_label": "Web Server",
+            },
+            "smb": {
+                "label": "SMB",
+                "desc": "smbclient -L //aaa.bbb.ccc.ddd lista shares (tentando credenciais aleatórias). Padrão: 445.",
+                "default_port": 445,
+                "server_label": "SMB Server",
+            },
+            "ssh": {
+                "label": "SSH",
+                "desc": "paramiko tenta abrir sessão SSH contra aaa.bbb.ccc.ddd com credenciais aleatórias (timeout 1s). Padrão: 22.",
+                "default_port": 22,
+                "server_label": "SSH Server",
+            },
+            "rdp": {
+                "label": "RDP",
+                "desc": "xfreerdp tenta autenticação (+auth-only) contra aaa.bbb.ccc.ddd com credenciais aleatórias (timeout 1s). Padrão: 3389.",
+                "default_port": 3389,
+            },
+            "telnet": {
+                "label": "TELNET",
+                "desc": "Conexão TCP e envio de usuário/senha aleatórios (simples) contra aaa.bbb.ccc.ddd. Padrão: 23.",
+                "default_port": 23,
+                "server_label": "Telnet Server",
+            },
+            "smtp": {
+                "label": "SMTP",
+                "desc": "TCP, EHLO, tentativa AUTH LOGIN com credenciais aleatórias, QUIT. Padrão: 25.",
+                "default_port": 25,
+            },
+            "imap": {
+                "label": "IMAP",
+                "desc": "TCP, LOGIN user pass, LOGOUT. Padrão: 143.",
+                "default_port": 143,
+            },
+            "pop3": {
+                "label": "POP3",
+                "desc": "TCP, USER/PASS, QUIT. Padrão: 110.",
+                "default_port": 110,
+            },
+            "ftp": {
+                "label": "FTP",
+                "desc": "TCP, USER/PASS, QUIT. Padrão: 21.",
+                "default_port": 21,
+            },
+            "dns": {
+                "label": "DNS",
+                "desc": "dig @aaa.bbb.ccc.ddd -p PORT example.com A com +time=1 +tries=1. Padrão: 53.",
+                "default_port": 53,
+            },
+            "snmp": {
+                "label": "SNMP",
+                "desc": "snmpget v2c em sysUpTime.0 com community aleatória, -t 1 -r 0. Padrão: 161.",
+                "default_port": 161,
+            },
+            "sip": {
+                "label": "SIP",
+                "desc": "Envia OPTIONS via UDP (SIP mínimo) e aguarda resposta até 1s. Padrões: 5060 (sem TLS) e 5061 (TLS).",
+                "default_port": 5060,
+            },
+            "coap": {
+                "label": "CoAP",
+                "desc": "coap-client -m get coap://aaa.bbb.ccc.ddd:PORT/.well-known/core. Padrão: 5683.",
+                "default_port": 5683,
+                "server_label": "CoAP Server",
+            },
+            "mqtt": {
+                "label": "MQTT",
+                "desc": "mosquitto_pub publica em tópico aleatório com user/pass aleatórios. Padrão: 1883.",
+                "default_port": 1883,
+                "server_label": "MQTT Broker",
+            },
+            "zenoh": {
+                "label": "Zenoh-Pico (Zenoh)",
+                "desc": "Tentativa leve de conectividade (TCP connect; fallback UDP probe). TCP comum: 7447. Scouting multicast UDP (ex.: 7446).",
+                "default_port": 7447,
+            },
+            "xrcedds": {
+                "label": "XRCE-DDS (Micro XRCE-DDS)",
+                "desc": "Envia datagrama UDP “probe” (benigno) ao agente. Porta comum do agente: 8888/UDP.",
+                "default_port": 8888,
+            },
+        }
+
+        service_keys = list(SUPER_SERVICE_SPECS.keys())
+
+        from functools import partial
+
+        def _super_apply_defaults(ip_map_local: dict) -> None:
+            svc = st.session_state.get("super_svc")
+            if not svc:
+                return
+
+            spec = SUPER_SERVICE_SPECS[svc]
+
+            # Atualiza porta padrão sempre que mudar o serviço
+            st.session_state["super_port"] = int(spec["default_port"])
+
+            # Sugere IP apenas se houver server_label mapeado
+            server_label = spec.get("server_label", "")
+            suggested_ip = ip_map_local.get(server_label, "") or ""
+            if suggested_ip == "-":
+                suggested_ip = ""
+            if suggested_ip and not (st.session_state.get("super_ip") or "").strip():
+                st.session_state["super_ip"] = suggested_ip
+
+        svc = st.selectbox(
+            "Serviço",
+            service_keys,
+            index=0,
+            format_func=lambda k: SUPER_SERVICE_SPECS[k]["label"],
+            key="super_svc",
+            on_change=partial(_super_apply_defaults, ip_map_local),
+        )
+
+        # Texto informativo atualiza ao mudar o serviço
+        st.info(SUPER_SERVICE_SPECS[svc]["desc"])
+        if "super_port" not in st.session_state:
+            st.session_state["super_port"] = int(SUPER_SERVICE_SPECS[svc]["default_port"])
+
+        with st.form("super_client_form", clear_on_submit=False):
+            ip = st.text_input("IP", key="super_ip", placeholder="172.17.0.2")
+            port = st.number_input("Porta", min_value=1, max_value=65535, step=1, key="super_port")
+
+            max_access = st.number_input("Máximo de acessos (salvaguarda caso não haja intervalo entre requisições)", min_value=1, max_value=10_000_000, value=9999, step=1)
+            interval_s = st.number_input("Intervalo entre acessos (s)", min_value=0, max_value=86_400, value=1, step=1)
+            max_total_s = st.number_input("Tempo total de execução do cliente (s)", min_value=1, max_value=86_400, value=15, step=1)
+
+            submitted = st.form_submit_button(
+                "Iniciar cliente parametrizável",
+                type="primary",
+                disabled=(x >= SUPER_CLIENT_MAX_RUNNING),
+            )
+
+        if submitted:
+            # validações simples
+            errs = []
+            if not ip or not validate_ip(ip):
+                errs.append('Campo "IP" inválido.')
+            if not validate_port(int(port)):
+                errs.append('Campo "Porta" inválido (1–65535).')
+            if int(max_access) < 1:
+                errs.append('Campo "Máximo de acessos" inválido.')
+            if int(interval_s) < 0:
+                errs.append('Campo "Intervalo" inválido.')
+            if int(max_total_s) < 1:
+                errs.append('Campo "Máximo total de execução" inválido.')
+            if errs:
+                for e in errs:
+                    st.error(e)
+            else:
+                res = start_one_super_client(
+                    service=svc,
+                    target_ip=ip,
+                    target_port=int(port),
+                    max_accesses=int(max_access),
+                    interval_s=int(interval_s),
+                    max_total_s=int(max_total_s),
+                    running_clients=running,
+                )
+                res["title"] = f"Iniciado: {res.get('container_name')}" if res.get("ok") else "Falha ao iniciar cliente parametrizável."
+                st.session_state["last_client_action"] = res
+                st.rerun()
+
+        if running:
+            with st.expander("Ver containers em execução (parametrizável)", expanded=False):
+                st.write(", ".join(name for name, _ in running))
+
+        _render_last_client_action()
+
+        st.divider()
+        st.caption("**Cliente de acessos aleatórios**: Inicia um container que faz acessos \"simples\" aos serviços dos servidores alvos, em ordem aleatória e com período aleatório (entre 1 e 5 segundos). ")
+        st.caption("**Cliente parametrizável**: Inicia um container com servidor alvo específico e gera acessos \"simples\" com a periodicidade, pelo tempo parametrizado.")
+
+    st.divider()
+    st.markdown("### Logs consolidados de clientes benignos")
+
+    # Visualização do log unificado
+    if "benign_log_tail" not in st.session_state:
+        st.session_state["benign_log_tail"] = 400
+
+    c1, c2, c3 = st.columns([1.2, 1.0, 1.8], gap="small")
+    tail_n = c1.number_input(
+        "Tail (linhas)",
+        min_value=20,
+        max_value=5000,
+        value=int(st.session_state["benign_log_tail"]),
+        step=20,
+        key="benign_log_tail_n",
+    )
+    st.session_state["benign_log_tail"] = int(tail_n)
+
+    if c2.button("Atualizar logs", key="refresh_benign_log"):
+        st.rerun()
+
+    if BENIGN_CLIENTS_LOG.exists():
+        with BENIGN_CLIENTS_LOG.open("rb") as f:
+            c3.download_button(
+                "Download benign_clients.log",
+                data=f,
+                file_name=BENIGN_CLIENTS_LOG.name,
+                mime="text/plain",
+                key="dl_benign_clients_log",
+                use_container_width=True,
+            )
+        st.code(tail_text_file(BENIGN_CLIENTS_LOG, n_lines=int(tail_n)), language="text")
+    else:
+        st.info('Nenhum log ainda em "logs/benign_clients.log".')
 
 # -----------------------------
 # Capturas + Features (views)
@@ -991,7 +1634,7 @@ def render_view_dataset_view() -> None:
             for i, row in enumerate(r):
                 rows.append(row)
                 if i >= int(preview_n):
-                    breakf
+                    break
 
         if rows:
             # Mostra como dataframe “manual”
@@ -1195,53 +1838,37 @@ if st.sidebar.button("Atualizar"):
     get_servers_status.clear()
 
 st.sidebar.divider()
-st.sidebar.header("Clientes benignos")
+st.sidebar.header("Clientes benignos em execução:")
 
-running_clients = list_running_benign_clients()
-x = len(running_clients)
+# Apenas status/contadores aqui; controles ficam na tela "Controle de clientes benignos"
+running_random = list_running_benign_clients()
+running_super = list_running_super_clients()
 
+st.sidebar.write(f"Acesso aleatório: **{len(running_random)}**")
+st.sidebar.write(f"Parametrizável: **{len(running_super)}**")
+
+# Info de pré-requisitos para spawn do cliente aleatório (depende dos 7 servidores)
 server_ips, missing_servers = get_required_server_ips()
 servers_ok = (server_ips is not None)
-
-# desabilita se docker indisponível OU >=10 OU servers não OK
-remove_disabled = (x == 0) or (not docker_available())
-start_disabled = (x >= CLIENT_MAX_RUNNING) or (not docker_available()) or (not servers_ok)
-
-st.sidebar.write(f"Clientes benignos: **{x}**")
-cA, cB = st.sidebar.columns([1, 1], gap="small")
 if not servers_ok:
     st.sidebar.warning(
-        "Para iniciar clientes benignos, todos os 7 servidores devem estar rodando. "
-        f"Faltando: {', '.join(missing_servers)}"
+        "Servidores (pré-requisito p/ cliente aleatório) indisponíveis: "
+        f"{', '.join(missing_servers)}"
     )
 
-if cA.button("Remover todos os clientes", disabled=remove_disabled, use_container_width=True):
-    res = remove_all_benign_clients(running_clients)
-    if res.get("ok"):
-        st.sidebar.success("Clientes removidos.")
-    else:
-        st.sidebar.error("Falha ao remover clientes.")
-        if res.get("stderr"):
-            st.sidebar.caption(res["stderr"])
-    st.rerun()
-
-if cB.button("Iniciar um cliente", disabled=start_disabled, use_container_width=True):
-    res = start_one_benign_client(running_clients)
-    if res.get("ok"):
-        st.sidebar.success(f"Iniciado: {res.get('container_name')}")
-    else:
-        st.sidebar.error("Falha ao iniciar cliente.")
-        if res.get("stderr"):
-            st.sidebar.caption(res["stderr"])
-    st.rerun()
-
-# (Opcional) Mostrar lista compacta dos nomes detectados
 with st.sidebar.expander("Detalhes", expanded=False):
-    if not running_clients:
-        st.write("Nenhum cliente benigno em execução.")
+    if running_random:
+        st.write("Aleatório:", ", ".join(name for name, _ in running_random))
     else:
-        st.write(", ".join(name for name, _ in running_clients))
+        st.write("Aleatório: nenhum em execução.")
+    if running_super:
+        st.write("Super:", ", ".join(name for name, _ in running_super))
+    else:
+        st.write("Super: nenhum em execução.")
 
+if st.sidebar.button("Controle de clientes benignos", type="secondary"):
+    st.session_state["view"] = "benign_clients"
+    st.rerun()
 
 st.sidebar.divider()
 
@@ -1578,6 +2205,9 @@ def category_tab_ui(category_name: str, attacks: List[AttackSpec]) -> None:
 # -----------------------------
 # Router de telas
 # -----------------------------
+if st.session_state["view"] == "benign_clients":
+    render_benign_clients_view()
+    st.stop()
 if st.session_state["view"] == "server_logs":
     render_server_logs_view()
     st.stop()

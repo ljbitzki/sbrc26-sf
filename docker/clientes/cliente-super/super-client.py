@@ -110,7 +110,7 @@ def do_web(ip: str, port: int) -> Tuple[bool, str]:
 
 def do_smb(ip: str, port: int) -> Tuple[bool, str]:
     user, pw = _rand_userpass()
-    # -L lista shares; -t timeout interno; também protegemos com timeout do subprocess (1s)
+    # -L lista shares; -t timeout interno; também com timeout do subprocess (1s)
     cmd = ["smbclient", "-L", f"//{ip}", "-p", str(port), "-U", f"{user}%{pw}", "-m", "SMB3", "-t", "1"]
     rc, out, err = _run_cmd(cmd)
     return (rc == 0), (f"smbclient_rc={rc} err={err[:80]}" if rc != 0 else "smb_ok")
@@ -339,7 +339,7 @@ DEFAULT_PORTS = {
 def usage() -> None:
     print(
         "Uso:\n"
-        "  benign_client.py <servico> <ip> <porta|0> <quantos> <intervalo_s> <tempo_total_s>\n\n"
+        "  super-client.py <servico> <ip> <porta|0> <quantos> <intervalo_s> <tempo_total_s>\n\n"
         "Ex:\n"
         "  docker run --rm imagem:latest web 172.17.0.2 443 10 1 15\n",
         file=sys.stderr,
