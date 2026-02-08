@@ -99,9 +99,9 @@ Cabe ressaltar que todas as senhas, chaves SSH, chaves de API e outros elementos
 
 # Instalação
 
-#### O experimento possui duas opções disponíveis para execução, tendo cada uma delas as seguintes etapas de instalação:
+### O experimento possui duas opções disponíveis para execução, tendo cada uma delas as seguintes etapas de instalação:
 
-### **Opção 1: Appliance pronta de VirtualBox:**
+## **Opção 1: Appliance pronta de VirtualBox:**
 
 1. Baixe o appliance (arquivo .ova) do experimento que está disponível através do [link](https://drive.google.com/file/d/1TLpkfJu4j9GFS25LDYUFLDhnuQG-v2XH/view?usp=sharing).
 > [!NOTE]
@@ -110,6 +110,7 @@ Cabe ressaltar que todas as senhas, chaves SSH, chaves de API e outros elementos
 2. Importe o arquivo `sbrc26-sf-desktop.ova` baixado no VirtualBox. Apenas ajuste o local onde a máquina será armazenada, demais informações podem ser deixadas como padrão:
    
 ![assets/vb1.png](assets/vb1.png)
+
 ![assets/vb2.png](assets/vb2.png)
 
 3. Clique em _Finalizar_ e aguarde o processo de importação.
@@ -126,15 +127,17 @@ Cabe ressaltar que todas as senhas, chaves SSH, chaves de API e outros elementos
 5. Após a inicialização da VM e login (usuário **sbrc26** e senha **sbrc26**), abra o atalho do terminal no desktop, digite `experimento` e pressione Enter:
 
 ![assets/vb5.png](assets/vb5.png)
+
 ![assets/vb6.png](assets/vb6.png)
 
 6. Quando o ambiente terminar de carregar, o navegador (Mozilla Firefox) abrirá automaticamente.
 Caso isto não ocorra, há um atalho no desktop. O endereço de acesso à ferramenta estará indicado no terminal.
 
 ![assets/vb7.png](assets/vb7.png)
+
 ![assets/vb8.png](assets/vb8.png)
 
-### **Opção 2: Execução manual dos procedimentos de instalação:**
+## **Opção 2: Execução manual dos procedimentos de instalação:**
 
 1. Em um terminal do Linux local, executar:
 ```
@@ -399,7 +402,7 @@ docker image ls -a --format table | grep 'sbrc26-'
 
 ## Demonstração completa em vídeo do testbed e das reivindicações, utilizando o ambiente instalado manualmente (`Opção 2`)
 
-[![video-demonstracao-uso](https://img.youtube.com/vi/OV3W2p0C8-w/0.jpg)](https://www.youtube.com/watch?v=OV3W2p0C8-w)
+[![video-demonstracao-uso](https://img.youtube.com/vi/ZvMRpFVetvw/0.jpg)](https://www.youtube.com/watch?v=ZvMRpFVetvw)
 
 ---
 
