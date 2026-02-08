@@ -8,27 +8,46 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-# Diretórios padrão (mesmos da ferramenta principal)
 FEATURES_DIR = Path("features")
 TMP_DIR = Path(".tmp")
 
-
 def _ensure_dirs() -> None:
+    """
+    Garante existência do diretório de saída
+    """
     FEATURES_DIR.mkdir(parents=True, exist_ok=True)
     TMP_DIR.mkdir(parents=True, exist_ok=True)
 
-
 def stem_no_ext(p: Path) -> str:
+    """
+    Camiho do arquivo de captura em string
+
+    :param p: Camiho do arquivo de captura como path
+    :type p: Path
+    :return: Camiho do arquivo de captura em string
+    :rtype: str
+    """
     return p.name[:-5] if p.name.lower().endswith(".pcap") else p.stem
 
-
 def tool_exists(exe: str) -> bool:
-    return shutil.which(exe) is not None
+    """
+    Verifica se a ferramenta que será usada existe
 
+    :param exe: Ferramenta para testar
+    :type exe: str
+    :return: Retorna true ou false
+    :rtype: bool
+    """
+    return shutil.which(exe) is not None
 
 def _run(cmd: List[str]) -> Tuple[int, str, str]:
     """
-    binary-safe.
+    binary-safe
+
+    :param cmd: Comando para execução
+    :type cmd: List[str]
+    :return: Comando completo com parâmetros
+    :rtype: Tuple[int, str, str]
     """
     p = subprocess.run(cmd, capture_output=True)
     stdout = (p.stdout or b"").decode("utf-8", errors="replace").strip()
@@ -37,6 +56,16 @@ def _run(cmd: List[str]) -> Tuple[int, str, str]:
 
 
 def build_feature_paths(pcap_path: Path, features_dir: Path = FEATURES_DIR) -> Dict[str, Path]:
+    """
+    Define caminhos completos de saída da extração de features
+
+    :param pcap_path: Caminho do arquivo de captura
+    :type pcap_path: Path
+    :param features_dir: Caminho do diretório de features, padrão é features/
+    :type features_dir: Path, optional
+    :return: Caminho do arquivo de saída, por ferramenta
+    :rtype: Dict[str, Path]
+    """
     base = stem_no_ext(pcap_path)
     return {
         "ntlflowlyzer": features_dir / f"ntlflowlyzer-{base}.csv",
@@ -50,6 +79,16 @@ def build_feature_paths(pcap_path: Path, features_dir: Path = FEATURES_DIR) -> D
 
 # NTLFlowLyzer
 def extract_with_ntlflowlyzer(pcap_path: Path, out_csv: Path) -> Dict[str, Any]:
+    """
+    Extração com o NTLFlowLyzer
+
+    :param pcap_path: Caminho do arquivo de captura
+    :type pcap_path: Path
+    :param out_csv: Caminho do arquivo de saída csv
+    :type out_csv: Path
+    :return: Caminho do arquivo de saída, por ferramenta
+    :rtype: Dict[str, Any]
+    """
     if not tool_exists("ntlflowlyzer"):
         return {"ok": False, "stderr": "ntlflowlyzer não encontrado no PATH (instale o NTLFlowLyzer).", "cmd": []}
 
@@ -59,7 +98,7 @@ def extract_with_ntlflowlyzer(pcap_path: Path, out_csv: Path) -> Dict[str, Any]:
         "pcap_file_address": str(pcap_path.resolve()),
         "output_file_address": str(out_csv.resolve()),
         "label": "Unknown",
-        "number_of_threads": 4,
+        "number_of_threads": 6,
     }
 
     cfg_path = TMP_DIR / f"ntlflowlyzer-{stem_no_ext(pcap_path)}.json"
@@ -82,6 +121,16 @@ def extract_with_ntlflowlyzer(pcap_path: Path, out_csv: Path) -> Dict[str, Any]:
 
 # TShark
 def extract_with_tshark(pcap_path: Path, out_csv: Path) -> Dict[str, Any]:
+    """
+    Extração com o TShark
+
+    :param pcap_path: Caminho do arquivo de captura
+    :type pcap_path: Path
+    :param out_csv: Caminho do arquivo de saída csv
+    :type out_csv: Path
+    :return: Caminho do arquivo de saída, por ferramenta
+    :rtype: Dict[str, Any]
+    """
     if not tool_exists("tshark"):
         return {"ok": False, "stderr": "tshark não encontrado no PATH.", "cmd": []}
 
@@ -135,6 +184,16 @@ def extract_with_tshark(pcap_path: Path, out_csv: Path) -> Dict[str, Any]:
 
 # Python Scapy
 def extract_with_scapy(pcap_path: Path, out_csv: Path) -> Dict[str, Any]:
+    """
+    Extração com o Scapy
+
+    :param pcap_path: Caminho do arquivo de captura
+    :type pcap_path: Path
+    :param out_csv: Caminho do arquivo de saída csv
+    :type out_csv: Path
+    :return: Caminho do arquivo de saída, por ferramenta
+    :rtype: Dict[str, Any]
+    """
     _ensure_dirs()
     try:
         from scapy.all import PcapReader  # type: ignore

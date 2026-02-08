@@ -6,8 +6,15 @@ from typing import Iterable, Union, List
 import pandas as pd
 
 PathLike = Union[str, Path]
-# Garante existência do diretório de saída
 def _ensure_dir(path: PathLike) -> Path:
+    """
+    Garante existência do diretório de saída
+
+    :param path: Caminho relativo
+    :type path: PathLike
+    :return: Caminho absoluto para verificação e criação, se necessário
+    :rtype: Path
+    """
     p = Path(path)
     if p.suffix:
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -16,6 +23,16 @@ def _ensure_dir(path: PathLike) -> Path:
     return p
 
 def _detect_source_tool(df: pd.DataFrame, path: Path) -> str:
+    """
+    
+
+    :param df: Dataframes pandas
+    :type df: pd.DataFrame
+    :param path: Caminho dos dataframes
+    :type path: Path
+    :return: Retorna provavel nome dos arquivos
+    :rtype: str
+    """
     name = path.name.lower()
 
     # NTLFlowLyzer (flow-level)
@@ -32,8 +49,15 @@ def _detect_source_tool(df: pd.DataFrame, path: Path) -> str:
 
     return "unknown"
 
-# Normalização NTLFL
 def _normalize_ntlflowlyzer(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Normalização NTLFlowLyzer       
+
+    :param df: Dataframe pandas
+    :type df: pd.DataFrame
+    :return: Novo dataframe "normalizado"
+    :rtype: pd.DataFrame
+    """
     df = df.copy()
 
     # padroniza nomes mínimos
@@ -55,7 +79,7 @@ def _normalize_ntlflowlyzer(df: pd.DataFrame) -> pd.DataFrame:
     else:
         df["ts"] = pd.NA
 
-    # NTLFlowLyzer às vezes tem "label" interno: renomear
+    # renomear label interno para evitar rotulamento neste momento
     if "label" in df.columns:
         df = df.rename(columns={"label": "ntlflow_label"})
 
@@ -66,8 +90,15 @@ def _normalize_ntlflowlyzer(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-# Normalização TS
 def _normalize_tshark_packets(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Normalização TShark       
+
+    :param df: Dataframe pandas
+    :type df: pd.DataFrame
+    :return: Novo dataframe "normalizado"
+    :rtype: pd.DataFrame
+    """
     df = df.copy()
 
     # Campos do extrator:
@@ -91,8 +122,15 @@ def _normalize_tshark_packets(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-# Normalização PS
 def _normalize_scapy_packets(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Normalização Scapy
+
+    :param df: Dataframe pandas
+    :type df: pd.DataFrame
+    :return: Novo dataframe "normalizado"
+    :rtype: pd.DataFrame
+    """
     df = df.copy()
 
     # Campos do extrator:
@@ -110,6 +148,16 @@ def _normalize_scapy_packets(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def _normalize_common(df: pd.DataFrame, source: str) -> pd.DataFrame:
+    """
+    Normalização generalista
+
+    :param df: Dataframne
+    :type df: pd.DataFrame
+    :param source: Origem do dataframe
+    :type source: str
+    :return: Dataframe normalizado
+    :rtype: pd.DataFrame
+    """
     if source == "ntlflowlyzer":
         df = _normalize_ntlflowlyzer(df)
     elif source == "tshark_packets":
@@ -125,8 +173,17 @@ def _normalize_common(df: pd.DataFrame, source: str) -> pd.DataFrame:
     df["source_tool"] = source
     return df
 
-# Carrega features
 def load_features(csv_paths: Union[PathLike, Iterable[PathLike]]) -> pd.DataFrame:
+    """
+    Carrega features
+
+    :param csv_paths: Caminhos dos arquivos csv
+    :type csv_paths: Union[PathLike, Iterable[PathLike]]
+    :raises FileNotFoundError: Erro caso o arquivo não seja encontrado
+    :raises ValueError: Erro caso o arquivo não possua valores que dê para trabalhar
+    :return: Dataframe
+    :rtype: pd.DataFrame
+    """
     if isinstance(csv_paths, (str, Path)):
         csv_paths = [csv_paths]
 
@@ -134,7 +191,7 @@ def load_features(csv_paths: Union[PathLike, Iterable[PathLike]]) -> pd.DataFram
     for path in csv_paths:
         p = Path(path)
         if not p.is_file():
-            raise FileNotFoundError(f"Feature CSV not found: {p}")
+            raise FileNotFoundError(f"Arquivo CSV não encontrado: {p}")
 
         df = pd.read_csv(p, engine="python")
         source = _detect_source_tool(df, p)
@@ -144,11 +201,10 @@ def load_features(csv_paths: Union[PathLike, Iterable[PathLike]]) -> pd.DataFram
         dfs.append(df_norm)
 
     if not dfs:
-        raise ValueError("No feature CSVs were provided.")
+        raise ValueError("Nenhum valor fornecido.")
 
     return pd.concat(dfs, ignore_index=True)
 
-# Gera dataset não supervisionado
 def build_dataset_unsupervised_for_capture(
     capture_pcap: PathLike,
     *,
@@ -157,9 +213,21 @@ def build_dataset_unsupervised_for_capture(
     save: bool = True,
 ) -> Path:
     """
-    Monta o dataset unsupervised referente a UMA captura.
+    Monta o dataset não supervisionado referente a UMA captura.
     Procura automaticamente ntlflowlyzer-<base>.csv, tshark-<base>.csv, scapy-<base>.csv.
     Salva datasets/unsupervised-<base>.csv
+
+    :param capture_pcap: Arquivo de captura
+    :type capture_pcap: PathLike
+    :param features_dir: Diretório das features, padrão é "features/"
+    :type features_dir: PathLike, optional
+    :param outdir: Diretório dos datasets, padrão é "datasets/"
+    :type outdir: PathLike, optional
+    :param save: Booleano para salvar em arquivo ou não, padrão é True
+    :type save: bool, optional
+    :raises FileNotFoundError: Erro caso o arquivo não seja encontrado
+    :return: Caminho completo do salvamento do dataset
+    :rtype: Path
     """
     capture_pcap = Path(capture_pcap)
     base = capture_pcap.name[:-5] if capture_pcap.name.lower().endswith(".pcap") else capture_pcap.stem
@@ -182,5 +250,4 @@ def build_dataset_unsupervised_for_capture(
         df.to_csv(out_path, index=False)
         return out_path
 
-    # se save=False, ainda devolve um path “virtual”
     return Path(outdir) / f"unsupervised-{base}.csv"
