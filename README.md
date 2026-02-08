@@ -440,7 +440,7 @@ sbrc26-sf
 
 ## Documentação das funções (gerado por documentação inline do tipo Docstrings junto ao código) via Sphinx:
 
-Documentação dos módulos e funções: [CLIQUE AQUI](https://leftredshift.github.io/modules)
+Documentação dos módulos e funções: [CLIQUE AQUI](https://leftredshift.github.io/api/index.html)
 
 # Ambiente de testes:
 ***Hardware:*** Processador: AMD Ryzen 5 5500X, Memória RAM: 8GB DDR4, Armazenamento SSD.
