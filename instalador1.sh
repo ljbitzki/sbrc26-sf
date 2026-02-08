@@ -22,7 +22,7 @@ echo "Instalando Docker Engine..."
 sudo DEBIAN_FRONTEND=noninteractive apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 sudo usermod -aG docker $USER
 echo "Instalando a ferramenta..."
-chmod +x clientes.sh servidores.sh instalador2.sh
+chmod +x clientes.sh servidores.sh instalador2.sh ambiente.sh
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip

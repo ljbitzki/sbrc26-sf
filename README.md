@@ -103,11 +103,13 @@ Cabe ressaltar que todas as senhas, chaves SSH, chaves de API e outros elementos
 
 ### **Opção 1: Appliance pronta de VirtualBox:**
 
-1. Baixe o appliance (arquivo .ova) do experimento que está disponível através do [link](https://drive.google.com/file/d/1eOATPTJJhUBpCJntKLdyHAT69c49bkHW/view?usp=drive_link).
+1. Baixe o appliance (arquivo .ova) do experimento que está disponível através do [link](https://drive.google.com/file/d/1TLpkfJu4j9GFS25LDYUFLDhnuQG-v2XH/view?usp=sharing).
+> [!NOTE]
+> O arquivo possui 9,7GB e o **sha256sum** dele é `08bd0befece53d0e6c8e3f3a2084fb43de04452fb833dc9cc5828b98199198a0`.
+
 2. Importe o arquivo `sbrc26-sf-desktop.ova` baixado no VirtualBox. Apenas ajuste o local onde a máquina será armazenada, demais informações podem ser deixadas como padrão:
    
 ![assets/vb1.png](assets/vb1.png)
-
 ![assets/vb2.png](assets/vb2.png)
 
 3. Clique em _Finalizar_ e aguarde o processo de importação.
@@ -121,10 +123,16 @@ Cabe ressaltar que todas as senhas, chaves SSH, chaves de API e outros elementos
 
 ![assets/vb4.png](assets/vb4.png)
 
-5. Após a inicialização da VM e login (usuário **user** e senha **ubuntu24**), abra o atalho do navegador no desktop:
+5. Após a inicialização da VM e login (usuário **sbrc26** e senha **sbrc26**), abra o atalho do terminal no desktop, digite `experimento` e pressione Enter:
 
 ![assets/vb5.png](assets/vb5.png)
+![assets/vb6.png](assets/vb6.png)
 
+6. Quando o ambiente terminar de carregar, o navegador (Mozilla Firefox) abrirá automaticamente.
+Caso isto não ocorra, há um atalho no desktop. O endereço de acesso à ferramenta estará indicado no terminal.
+
+![assets/vb7.png](assets/vb7.png)
+![assets/vb8.png](assets/vb8.png)
 
 ### **Opção 2: Execução manual dos procedimentos de instalação:**
 
@@ -132,7 +140,8 @@ Cabe ressaltar que todas as senhas, chaves SSH, chaves de API e outros elementos
 ```
 sudo apt update && sudo apt install git -y
 ```
-2. Aguarde o término da instalação do pacote `git`, clone o repostirório e entre no diretório raiz do mesmo:
+
+2. Aguarde o término da instalação do pacote `git`, clone o repositório e entre no diretório raiz do mesmo:
 
 ```
 git clone https://github.com/ljbitzki/sbrc26-sf.git && cd sbrc26-sf/
@@ -160,7 +169,7 @@ Inicie o criador das imagens, executando o `instalador2.sh`:
 4. Aguarde o término do processo de construção das imagens e inicialização da ferramenta.
 Ao concluir, serão exibidas informações em tela da URL em que a aplicação estará acessível.
 
-**Nota:** _No ambiente de desenvolvimento, com recursos iguais aos da `Opção 2`, os procedimentos de instalação levaram em média `11 minutos e 30 segundos` para concluir na totalidade, baixando cerca de 2.3GB de dados pela internet e resultando no uso de 12GB de espaço adicional em disco. Este tempo deve variar conforme os recursos do ambiente de cada instalação._
+**Nota:** _No ambiente de desenvolvimento, com recursos iguais aos da `Opção 2`, os procedimentos de instalação levaram em média `11 minutos e 30 segundos` para concluir na totalidade, baixando cerca de 3.3GB de dados pela internet e resultando no uso de 12GB de espaço adicional em disco. Este tempo deve variar conforme os recursos do ambiente de cada instalação._
 
 #### Vídeo de demonstração da instalação do testbed em uma VM nova utilizando a `Opção 2`:
 
@@ -172,16 +181,27 @@ Ao concluir, serão exibidas informações em tela da URL em que a aplicação e
 
 #### O ambiente do testbed será considerado operacional se: (estando em um terminal no dispositivo onde a instalação foi executada)
 
-A URL (resultante do comando seguinte) estiver acessível pelo navegador de internet:
+1. A URL (resultante do comando seguinte) estiver acessível pelo navegador de internet:
 
 ```
 echo "http://$( ip route get 9.9.9.9 | awk '{print $7; exit}' ):8501"
 ```
 
-O retorno de contagem mínima de conteineres esperado (resultante do comando seguinte) seja `Containeres OK`:
+> [!TIP]
+> Caso a URL não esteja acessível, reinicie o ambiente com o comando (estando na raiz do repositório):
+```
+./ambiente.sh reiniciar
+```
+
+2. O retorno de contagem mínima de conteineres esperada (resultante do comando seguinte) seja **`Containeres OK`**:
+> [!TIP]
+> Caso o retorno do comando seja **`Containeres NOT OK`**, execute novamente o builder das imagens (estando na raiz do repositório):
+```
+cd docker && ./build-images.sh
+```
 
 ```
-if [ $( docker ps -a | grep -c 'sbrc-' ) -ge 49 ]; then echo "Containeres OK"; else echo "Containeres NOK"; fi
+if [ $( docker images --format=table | grep -c 'sbrc26-' ) -gt 50 ]; then echo "Containeres OK"; else echo "Containeres NOT OK"; fi
 ```
 
 ---
@@ -192,7 +212,7 @@ if [ $( docker ps -a | grep -c 'sbrc-' ) -ge 49 ]; then echo "Containeres OK"; e
 
 ### Catálogo de ataques, servidores e cliente conteinerizados:
 
-Para verificar a criação das 50 imagens de conteineres Docker descritas no artigo, execute em um terminal no dispositivo onde o ambiente foi instalado:
+Para verificar a criação das 51 imagens de conteineres Docker componentes do **_testbed_**, execute em um terminal no dispositivo onde o ambiente foi instalado:
 ```
 docker image ls -a --format table | grep 'sbrc26-'
 ```
@@ -219,15 +239,14 @@ docker image ls -a --format table | grep 'sbrc26-'
 
 ![assets/2.png](assets/2.png)
 
-1. URL base da ferramental
-2. Status e visualização de logs dos servidores alvo
-3. Status e controles sobre os clientes benignos
-4. Menu de macro categorias dos ataques
-5. Menu de seleção de um ataque específico
-6. Detalhes do ataque selecionado (ID, Nome, Descrição, Imagem, Container e Categorização MITRE)
-7. Status e controles sobre a execução do ataque
-8. Parâmetros de execução do ataque (Endereço IP e Porta do alvo, quando aplicável) e seletor de captura de pacotes simultânea
-9. Menu de operações sobre capturas já realizadas
+1. Status e visualização de logs dos servidores alvo
+2. Status e controles sobre os clientes benignos
+3. Menu de macro categorias dos ataques
+4. Menu de seleção de um ataque específico
+5. Detalhes do ataque selecionado (ID, Nome, Descrição, Imagem, Container e Categorização MITRE Att&ck)
+6. Status e controles sobre a execução do ataque
+7. Parâmetros de execução do ataque (Endereço IP, Porta do alvo e Tempo de execução, quando aplicável) e seletor de captura de pacotes simultânea
+8. Menu de operações sobre capturas já realizadas e Logs dos ataques
 
 #### Funções relativas aos logs dos servidores alvo:
 
@@ -241,34 +260,60 @@ docker image ls -a --format table | grep 'sbrc26-'
 6. Exibição dos logs
 7. Botão para voltar a tela anterior
 
-#### Funções relativas controle dos clientes benignos:
+#### Funções relativas aos clientes benignos:
 
 ![assets/4.png](assets/4.png)
 
-1. Informação do número de clientes atualmente em execução (máximo de 10 para fins de demonstração)
-2. Botão para interromper a execução e remover todos os clientes benignos
-3. Botão para iniciar mais um cliente benigno (máximo de 10 para fins de demonstração)
-4. Informação adicional sobre os clientes benignos em execução
+1. Informação do número de clientes de acessos aleatório atualmente em execução
+2. Informação do número de clientes parametrizáveis atualmente em execução
+3. Informação do nome dos clientes de acessos aleatório atualmente em execução
+4. Informação do nome dos clientes parametrizáveis atualmente em execução
+5. Menu de controle dos clientes benignos
 
-#### Funções referentes a execução de um ataque:
+#### Funções relativas ao controle dos clientes benignos (acessos aleatórios):
 
 ![assets/5.png](assets/5.png)
 
-1. Ataque específico selecionado
-2. Endereço IP do servidor alvo (tipicamente, utilizar as informações sugeridas e pré-preenchidas)
-3. Porta do servidor alvo (tipicamente, utilizar as informações sugeridas e pré-preenchidas)
-4. Seletor para capturar pacotes durante a execução do ataque
-5. Botão para iniciar o ataque
-6. Informação relativa ao arquivo de captura resultante (somente se ativado o seletor de captura)
-7. Informação sobre o comando efetivamente executado para a captura (somente se ativado o seletor de captura)
-8. ID da execução do container no Docker Engine
-9. Informação sobre o comando efetivamente executado no Docker Engine
-10. Botão para forçar a atualização do status da execução
-11. Botão para interromper imediatamente o container do atacante
+1. Menu seletor dos controles sobre os clientes de acessos aleatórios
+2. Menu seletor dos controles sobre os clientes parametrizáveis
+3. Iniciar mais um cliente de acessos aleatórios (cada clique inicia mais um cliente independente)
+4. Remover todos os cliente de acessos aleatórios
+5. Botão para forçar a atualização das visualizações
+6. Informação adicional sobre a última ação
+7. Informação sobre o comando executado na última ação
+8. Controles sobre a exibição em tela dos logs consolidados sobre os clientes benignos
+9. Botão para baixar o arquivo de log na íntegra
+
+#### Funções relativas ao controle dos clientes benignos (parametrizável):
+
+![assets/6.png](assets/6.png)
+
+1. Menu de clientes benignos parametrizáveis
+2. Menu seletor do serviço do cliente benigno parametrizável
+3. Informações adicionais sobre o serviço do cliente benigno parametrizável
+4. Endereço IP ou FQDN do Alvo
+5. Porta do alvo
+6. Número máximo de requisições
+7. Intervalo entre requisições
+8. Tempo máximo de execução
+9. Controle para iniciar um cliente com os parâmetros especificados
+10. Botão para remover todos os clientes em execução
+11. Botão para forçar a atualização da visualização
+12. Botão para baixar o arquivo de log na íntegra
+13. Controles sobre a exibição em tela dos logs consolidados sobre os clientes benignos
+
+#### Funções referentes a execução de um ataque:
+
+![assets/7.png](assets/7.png)
+1. Menu de macro categorias dos ataques
+2. Menu de seleção de um ataque específico
+3. Detalhes do ataque selecionado (ID, Nome, Descrição, Imagem, Container e Categorização MITRE Att&ck)
+4. Status e controles sobre a execução do ataque
+5. Parametrização do ataque (IP ou FQDN, Porta e Duração)
 
 #### Funções referentes à manipulação de arquivos de captura:
 
-![assets/6.png](assets/6.png)
+![assets/8.png](assets/8.png)
 
 1. Botão de acesso ao módulo de visualização e processamento dos arquivos de captura
 2. Nome do(s) arquivo(s) de captura armazenados no diretório `/captures`
@@ -279,7 +324,7 @@ docker image ls -a --format table | grep 'sbrc26-'
 
 #### Funções referentes ao módulo de extração de features de um arquivo de captura:
 
-![assets/7.png](assets/7.png)
+![assets/9.png](assets/9.png)
 
 1. Nome do arquivo de captura selecionado
 2. Nome dos arquivos `.csv` previstos pós extração `/features`
@@ -291,7 +336,7 @@ docker image ls -a --format table | grep 'sbrc26-'
 
 #### Tela de resumo do processamento de features:
 
-![assets/8.png](assets/8.png)
+![assets/10.png](assets/10.png)
 
 1. Status da execução da extração com NTLFlowLyzer (somente se selecionado na tela anterior) e arquivo resultante salvo em `/features`
 2. Status da execução da extração com Dumpcap TShark (somente se selecionado na tela anterior) e arquivo resultante salvo em `/features`
@@ -299,7 +344,7 @@ docker image ls -a --format table | grep 'sbrc26-'
 
 #### Funções referentes a pré-visualização das features extraídas e geração de dataset:
 
-![assets/9.png](assets/9.png)
+![assets/11.png](assets/11.png)
 
 > Note que após um arquivo de captura ter features extraídas, são habilidados os botões adicionais
 1. Nome do arquivo de captura
@@ -308,7 +353,7 @@ docker image ls -a --format table | grep 'sbrc26-'
 
 #### Tela de pré-visualização de features extraídas:
 
-![assets/10.png](assets/10.png)
+![assets/12.png](assets/12.png)
 
 1. Arquivos referentes a extração e possíveis de serem visualizados
 2. Informação da fonte de cada arquivo `.csv`
@@ -319,28 +364,38 @@ docker image ls -a --format table | grep 'sbrc26-'
 
 #### Geração de dataset de fluxos consolidados de extração de features já realizada:
 
-![assets/11.png](assets/11.png)
+![assets/13.png](assets/13.png)
 
 1. Nome do arquivo de captura
 2. Botão para gerar o dataset em `datasets/`
 
 #### Função para pré-visualização de dataset gerado:
 
-![assets/12.png](assets/12.png)
+![assets/14.png](assets/14.png)
 
 1. Seletor de pré-visualização de dataset
 
 #### Tela de pré-visualização de dataset gerado:
 
-![assets/13.png](assets/13.png)
+![assets/15.png](assets/15.png)
 
 1. Nome dos arquivos de captura e features extraídos relativos ao dataset
 2. Botões para efetuar o download do arquivo `.csv` disponível
 3. Seletor do número de linhas para exibição (200 por padrão), máximo de colunas (80 por padrão) e campo de busca/filtragem
 4. Tabela de visualização do dataset
 
----
+#### Tela de visualização dos logs consolidados dos ataques:
 
+![assets/16.png](assets/16.png)
+
+1. Botão para acesso ao visualizador de logs consolidados dos ataques
+2. Opções sobre a visualização dos logs
+3. Busca textual simples dentro dos logs
+4. Exibição dos logs
+5. Botão para efetuar download do arquivo consolidado dos logs de ataques
+6. Botão para forçar a atualização da visualização
+
+---
 
 ## Demonstração completa em vídeo do testbed e das reivindicações, utilizando o ambiente instalado manualmente (`Opção 2`)
 
@@ -368,8 +423,10 @@ sbrc26-sf
 │   ├── features.py           # Módulo de extração de features
 │   ├── registry.py           # Módulo de declaração das especificações dos contêineres
 │   └── runners.py            # Módulo de ações práticas da ferramenta
+├── ambiente.sh               # Script para reiniciar o ambiente como um todo
 ├── clientes.sh               # Script para controlar manualmente os contêineres de clientes
 ├── ferramenta.py             # Arquivo principal da ferramenta
+├── ferramenta-cli.py         # Arquivo da ferramenta em versão CLI
 ├── instalador1.sh            # Script automatizado para instalação das dependências
 ├── instalador2.sh            # Script para geração das imagens e artefatos Docker
 ├── LICENSE                   # Arquivo de licença da ferramenta (GNU GENERAL PUBLIC LICENSE)

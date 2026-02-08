@@ -1517,7 +1517,7 @@ def render_benign_clients_view() -> None:
             st.session_state["super_port"] = int(SUPER_SERVICE_SPECS[svc]["default_port"])
 
         with st.form("super_client_form", clear_on_submit=False):
-            ip = st.text_input("IP", key="super_ip", placeholder="172.17.0.2")
+            ip = st.text_input("IP ou FQDN", key="super_ip", placeholder="172.17.0.x")
             port = st.number_input("Porta", min_value=1, max_value=65535, step=1, key="super_port")
 
             max_access = st.number_input("Máximo de acessos (salvaguarda caso não haja intervalo entre requisições)", min_value=1, max_value=10_000_000, value=9999, step=1)
