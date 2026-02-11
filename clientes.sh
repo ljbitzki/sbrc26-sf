@@ -7,7 +7,7 @@ if [ "${#}" -ne 1 ]; then
 fi
 
 if [ $( docker images --format table | grep -c 'sbrc26-clientes' ) -ne 1 ]; then
-    echo "Uma ou mais imagem(ns) de servidor(es) está(ão) faltando. Certifique-se de ter executado o build-images.sh conforme a documentação."
+    echo "Uma ou mais imagem(ns) de servidor(es) está(ão) faltando. Certifique-se de ter executado o criar-imagens.sh conforme a documentação."
     exit 1
 fi
 

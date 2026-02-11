@@ -200,7 +200,7 @@ echo "http://$( ip route get 9.9.9.9 | awk '{print $7; exit}' ):8501"
 > [!TIP]
 > Caso o retorno do comando seja **`Containeres NOT OK`**, execute novamente o builder das imagens (estando na raiz do repositório):
 ```
-cd docker && ./build-images.sh
+cd docker && ./criar-imagens.sh
 ```
 
 ```
@@ -417,7 +417,7 @@ sbrc26-sf
 ├── datasets/                 # Diretório de datasets gerados
 ├── docker/                   # Repositório de contêineres
 │   ├── atacantes/            # Diretório dos contêineres atacantes
-│   ├── build-images.sh       # Script de construção de todas as imagens
+│   ├── criar-imagens.sh       # Script de construção de todas as imagens
 │   ├── clientes/             # Diretório dos contêineres clientes (benignos)
 │   └── servidores/           # Diretório dos contêineres servidores alvo
 ├── features/                 # Diretório dos CSV de extração de features
