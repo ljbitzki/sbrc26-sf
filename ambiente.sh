@@ -11,12 +11,12 @@ function REINICIAR {
     if [ -z "${SLPID}" ]; then
         ./servidores.sh reiniciar
         source .venv/bin/activate
-        streamlit run ferramenta.py &
+        streamlit run ferramenta.py --theme.base="dark" &
     else
         sudo kill "${SLPID}"
         ./servidores.sh reiniciar
         source .venv/bin/activate
-        streamlit run ferramenta.py &
+        streamlit run ferramenta.py --theme.base="dark" &
     fi
 }
 

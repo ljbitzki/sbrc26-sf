@@ -5,7 +5,7 @@
 Este repositório tem como objetivo exemplificar o funcionamento prático do catálogo de ataques, servidores e cliente conteinerizados e da ferramenta de operação do presente _testbed_, tendo seus procedimentos de instalação, execução e reivindicações documentadas em texto e demonstradas em vídeo.
 
 ### Resumo do Artigo:
-_A reprodução de comportamentos de ataques cibernéticos sob demanda e a obtenção de dados de tráfego reais atualizados para análise e pesquisa se demonstram um desafio, tendo em vista que apesar de haver diversos estudos, ferramentas e repositórios sobre o tema, estes são ou muito verticalizados em protocolos específicos e/ou carecem de documentação de replicação, previsão de extensibilidade e facilidade de implementação. Este trabalho apresenta uma combinação de um repositório contendo 42 ataques individualizados e uma ferramenta do tipo interface que centraliza os controles para a exploração e o estudo de comportamento de tráfego de rede em cenários típicos de ataques cibernéticos, operacionalizando a execução dos ataques sob demanda, visualização de logs, captura de pacotes, extração e visualização de características de tráfego e consolidação de dados de fluxos em datasets para pesquisa._
+Executar sob demanda cenários de ataques cibernéticos a fim de gerar _datasets_ atuais e replicáveis para ensino e pesquisa ainda é um desafio. Embora existam estudos, ferramentas e repositórios, muitos são verticalizados em protocolos específicos ou carecem de método e/ou documentação que facilite replicação, extensibilidade e implantação. Este trabalho apresenta um _testbed_ que integra (i) um repositório com 42 ataques individualizados e (ii) uma ferramenta _web_ que centraliza o fluxo experimental para exploração e estudo do comportamento do tráfego em cenários típicos de ataque. A ferramenta operacionaliza a seleção e parametrização de cenários, a execução sob demanda, a visualização de logs, a captura de pacotes, a extração e visualização de características de tráfego e a consolidação de fluxos em _datasets_ para pesquisa.
 
 ---
 
@@ -105,7 +105,7 @@ Cabe ressaltar que todas as senhas, chaves SSH, chaves de API e outros elementos
 
 1. Baixe o appliance (arquivo .ova) do experimento que está disponível através do [link](https://drive.google.com/file/d/1TLpkfJu4j9GFS25LDYUFLDhnuQG-v2XH/view?usp=sharing).
 > [!NOTE]
-> O arquivo possui 9,7GB e o **sha256sum** dele é `08bd0befece53d0e6c8e3f3a2084fb43de04452fb833dc9cc5828b98199198a0`.
+> O arquivo `.ova` possui 9,7GB e o **sha256sum** dele é `08bd0befece53d0e6c8e3f3a2084fb43de04452fb833dc9cc5828b98199198a0`.
 
 2. Importe o arquivo `sbrc26-sf-desktop.ova` baixado no VirtualBox. Apenas ajuste o local onde a máquina será armazenada, demais informações podem ser deixadas como padrão:
    
@@ -445,6 +445,24 @@ Documentação dos módulos e funções: [CLIQUE AQUI](https://leftredshift.gith
 # Ambiente de testes:
 ***Hardware:*** Processador: AMD Ryzen 5 5500X, Memória RAM: 8GB DDR4, Armazenamento SSD.
 ***Software (Pincipal):*** Sistema Operacional: Kubuntu 24.04 LTS, Python 3.12 e módulo VENV, Docker Engine 29.2.1 e VirtualBox 7.1
+
+<details><summary>
+
+# Troubleshoot:
+</summary>
+
+### Portas já em uso no computador local:
+
+#### Problema 1: Já há um serviço utilizando uma porta que é necessária para um dos servidores: [Ver relação de portas, sessão "Experimentos"](https://github.com/GT-IoTEdu/sbrc2026-ataques?tab=readme-ov-file#experimentos):
+#### Exemplo 1: A porta 8080, utilizada pelo mapeamento do servidor `sbrc26-servidor-http-server` já está em uso por algum outro serviço local:
+```
+docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint sbrc26-servidor-http-server (container-id): failed to bind host port 0.0.0.0:8080/tcp: address already in use
+```
+#### Solução 1: 
+1. Parar o serviço local que já está em uso; ou
+2. Trocar a porta de mapeamento que está causando o conflito e subir o servidor novamente (modificar e utilizar o script `servidores.sh`)
+
+</details>
 
 # LICENSE
 

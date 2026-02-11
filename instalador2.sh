@@ -6,4 +6,4 @@ chmod +x build-images.sh
 echo "Contêineres criados... Executando Streamlit"
 cd ../
 source .venv/bin/activate
-streamlit run ferramenta.py &
+streamlit run ferramenta.py --theme.base="dark" &
