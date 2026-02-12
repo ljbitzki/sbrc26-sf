@@ -2,10 +2,15 @@
 [![Licença](https://img.shields.io/badge/License-GNU%20GPL-blue)](https://opensource.org/licenses/GNU)
 
 ### Objetivo:
-Este repositório tem como objetivo exemplificar o funcionamento prático do catálogo de ataques, servidores e cliente conteinerizados e da ferramenta de operação do presente _testbed_, tendo seus procedimentos de instalação, execução e reivindicações documentadas em texto e demonstradas em vídeo.
+Este repositório tem como objetivo armazenar todo código produzido, exemplificar o funcionamento prático do catálogo de ataques, servidores e clientes conteinerizados e da ferramenta de operação do presente _testbed_, tendo seus procedimentos de instalação, execução e reivindicações documentadas em texto e demonstradas em vídeo.
+
+Após instalado, o _testbed_ é operado por uma interface web acessada diretamente pelo navegador (por exemplo, Firefox/Chrome), sem necessidade de cliente adicional. A aplicação executa localmente no host (ou dentro da VM, na opção VirtualBox) e fica disponível, por padrão, em `http://:8501`. A partir dessa interface, o usuário seleciona e parametriza cenários de ataque, acompanha a execução com feedback de progresso e logs, e acessa os módulos de captura/processamento do tráfego e de geração/visualização de _datasets_.
 
 ### Resumo do Artigo:
-Executar sob demanda cenários de ataques cibernéticos a fim de gerar _datasets_ atuais e replicáveis para ensino e pesquisa ainda é um desafio. Embora existam estudos, ferramentas e repositórios, muitos são verticalizados em protocolos específicos ou carecem de método e/ou documentação que facilite replicação, extensibilidade e implantação. Este trabalho apresenta um _testbed_ que integra (i) um repositório com 42 ataques individualizados e (ii) uma ferramenta _web_ que centraliza o fluxo experimental para exploração e estudo do comportamento do tráfego em cenários típicos de ataque. A ferramenta operacionaliza a seleção e parametrização de cenários, a execução sob demanda, a visualização de logs, a captura de pacotes, a extração e visualização de características de tráfego e a consolidação de fluxos em _datasets_ para pesquisa.
+A execução de ataques cibernéticos com o objetivo de gerar _datasets_ de forma recorrente segue sendo um desafio.
+Este artigo apresenta um testbed que permite executar cenários de ataque de forma controlada, gerando datasets de forma padronizada.
+A proposta combina um repositório conteinerizado de ataques e uma ferramenta web de orquestração que permite parametrizar e automatizar o ciclo de execução, coleta e consolidação dos dados.
+O pipeline integra captura de tráfego, inspeção de logs, e extração de características por múltiplas ferramentas, gerando _datasets_ padronizados que permitem a comparação entre cenários e a avaliação de técnicas de detecção e classificação de tráfego malicioso.
 
 ---
 
