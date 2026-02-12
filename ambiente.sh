@@ -8,7 +8,7 @@ fi
 
 function REINICIAR {
     SLPID=$( sudo ps aux | grep 'streamlit' | grep -v grep | awk '{print $2}' )
-    if [ -z "${SLPID}" ]; then
+    if [[ -z "${SLPID}" ]]; then
         ./servidores.sh reiniciar
         source .venv/bin/activate
         streamlit run ferramenta.py --theme.base="dark" &
@@ -20,10 +20,24 @@ function REINICIAR {
     fi
 }
 
+function PARAR {
+	./servidores.sh parar
+	if [[ -n $( which deactivate ) ]]; then
+		deactivate
+	fi
+	SLPID=$( sudo ps aux | grep 'streamlit' | grep -v grep | awk '{print $2}' )
+	if [[ -n "${SLPID}" ]]; then
+		kill "${SLPID}"
+	fi
+}
+
 case "${1}" in
     reiniciar)
         REINICIAR
         ;;
+    parar)
+	PARAR
+	;;
     *)
         echo "Necessário passar a ação como parâmetro (reiniciar)"
         ;;
