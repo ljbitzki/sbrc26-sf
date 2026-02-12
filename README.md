@@ -446,6 +446,57 @@ Documentação dos módulos e funções: [CLIQUE AQUI](https://leftredshift.gith
 ***Hardware:*** Processador: AMD Ryzen 5 5500X, Memória RAM: 8GB DDR4, Armazenamento SSD.
 ***Software (Pincipal):*** Sistema Operacional: Kubuntu 24.04 LTS, Python 3.12 e módulo VENV, Docker Engine 29.2.1 e VirtualBox 7.1
 
+# Mapeamento completo de ataques e suas técnicas e táticas conforme o MITRE ATT&CK:
+
+**Número de ataques demonstrados e categorias de técnicas e táticas:**
+
+| Trabalho                          | Ataques únicos | Categorias técnicas e táticas abordadas |
+| --------------------------------- | :------------: | :---------------------------------: |
+| _[Kouril et al. 2014]_              |              1 | [2-4]                               |
+| _[Bernieri et al. 2017]_            |              4 | [3, 24-26]                          |
+| _[Siboni et al. 2019]_              |             5* | [1-3, 6, 9, 11, 14, 16, 18]         |
+| _[Dhanapal and Nithyanandam 2021]_  |              1 | [3-4]                               |
+| _[Wlazlo et al. 2021]_              |              3 | [11, 22-25]                         |
+| _[Jr. et al. 2021]_                 |              4 | [2-4, 17]                           |
+| _[S´aez-de C´amara et al. 2024]_    |            19* | [1-3, 6-8, 11, 13-21, 25]           |
+| _[Abdelrahman et al. 2023]_         |              4 | [11, 22-26]                         |
+| _[Freitas et al. 2024]_             |              4 | [2, 11, 14, 27]                     |
+| _[Katuri et al. 2024]_              |              2 | [24-25]                             |
+| _[Huang et al. 2024]_               |             8* | [5-6, 8, 28]                        |
+| _[Brito et al. 2025]_               |             5* | [1-6, 13, 16, 20]                   |
+| **Este trabalho**                     |             **42** | **[1-10, 12-16, 20-22, 24-26]**         |
+
+### Legenda [MITRE ATT&CK](https://attack.mitre.org/):
+**[1]** *T1021: Remote Services Exploitation*
+**[2]** *T1499: Endpoint Denial of Service*
+**[3]** *T1498: Network Denial of Service*
+**[4]** *TA0040: Disruption / Impact*
+**[5]** *T1595: Active Scanning*
+**[6]** *T1046: Network Service Discovery*
+**[7]** *T1592: Gather Victim Host Information*
+**[8]** *T1590: Gather Victim Network Information*
+**[9]** *T1596: Search Open Technical Databases*
+**[10]** *T1048: Exfiltration Over Alternative Protocol*
+**[11]** *T1040: Network Sniffing*
+**[12]** *T1135: Network Share Discovery*
+**[13]** *T1071: Application Layer Protocol*
+**[14]** *T1190: Exploit Public-Facing Application*
+**[15]** *TA0008: Lateral Movement*
+**[16]** *T1110: Brute Force*
+**[17]** *T1583: Acquire Infrastructure*
+**[18]** *T1059: Command and Scripting Interpreter*
+**[19]** *T1543: Create or Modify System Process*
+**[20]** *T1102: Web Services*
+**[21]** *T1095: Non-Application Layer Protocol*
+**[22]** *T0804: Block Reporting Message*
+**[23]** *T0836: Modify Parameter*
+**[24]** *T0830: Adversary-in-the-Middle*
+**[25]** *TA0106: Impair Process Control*
+**[26]** *TA0107: Inhibit Response Function*
+**[27]** *T1565: Data Manipulation*
+**[28]** *T1205: Traffic Signaling*
+✱: Os autores não mencionam um número específico de ataques; o valor foi inferido pelas demonstrações descritas no trabalho.
+
 <details><summary>
 
 # Troubleshoot:
