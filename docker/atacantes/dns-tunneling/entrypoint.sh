@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 DOMAIN=$( cat /dev/urandom | tr -dc "0-9a-fA-F" | fold -w 8 | head -n 1 )
-DNS_SERVERS=("1.1.1.1" "1.0.0.1" "8.8.8.8" "8.8.4.4" "9.9.9.9" "149.112.112.112" "76.76.19.19")
+DNS_SERVERS=("1.1.1.1" "1.0.0.1" "8.8.8.8" "8.8.4.4" "9.9.9.9" "149.112.112.112")
 LENGHT=${#DNS_SERVERS[@]}
 DOMAIN=$( cat /dev/urandom | tr -dc "0-9a-fA-F" | fold -w 8 | head -n 1 )
 function DNS_RESOLVE() {

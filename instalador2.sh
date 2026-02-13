@@ -6,4 +6,4 @@ chmod +x criar-imagens.sh
 echo "Contêineres criados... Executando Streamlit"
 cd ../
 source .venv/bin/activate
-streamlit run ferramenta.py --theme.base="dark" &
+streamlit run ferramenta.py --theme.base="dark" --server.headless true &
