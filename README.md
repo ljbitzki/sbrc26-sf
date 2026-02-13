@@ -27,9 +27,10 @@ Este README.md está organizado nas seguintes seções:
 7.  **Instalação:** Relação de opções para a realização do experimento, bem como as instruções individuais de cada opção.
 8.  **Teste mínimo:** Instruções para a execução das simulações.
 9.  **Experimentos:** Informações de replicação das reivindicações.
-10. **Documentação:** Documentação básica da aplicação.
+10. **Documentação básica:** Documentação básica da aplicação.
 11. **Ambiente de teste:** Ambientes que foram usados em testes.
-12. **Licença:** Informações sobre a licença do projeto.
+12. **Troubleshooting:** Potenciais problemas e soluções.
+13. **Licença:** Informações sobre a licença do projeto.
 
 ---
 
@@ -110,7 +111,7 @@ Cabe ressaltar que todas as senhas, chaves SSH, chaves de API e outros elementos
 
 1. Baixe o appliance (arquivo .ova) do experimento que está disponível através do [link](https://drive.google.com/file/d/1TLpkfJu4j9GFS25LDYUFLDhnuQG-v2XH/view?usp=sharing).
 > [!NOTE]
-> O arquivo `.ova` possui 9,7GB e o **sha256sum** dele é `08bd0befece53d0e6c8e3f3a2084fb43de04452fb833dc9cc5828b98199198a0`.
+> O arquivo `.ova` possui 9,6GB e o **sha256sum** dele é `08bd0befece53d0e6c8e3f3a2084fb43de04452fb833dc9cc5828b98199198a0`.
 
 2. Importe o arquivo `sbrc26-sf-desktop.ova` baixado no VirtualBox. Apenas ajuste o local onde a máquina será armazenada, demais informações podem ser deixadas como padrão:
    
@@ -472,34 +473,34 @@ Documentação dos módulos e funções: [CLIQUE AQUI](https://leftredshift.gith
 | **Este trabalho**                     |             **42** | **[1-10, 12-16, 20-22, 24-26]**         |
 
 ### Legenda [MITRE ATT&CK](https://attack.mitre.org/):
-**[1]** *T1021: Remote Services Exploitation*
-**[2]** *T1499: Endpoint Denial of Service*
-**[3]** *T1498: Network Denial of Service*
-**[4]** *TA0040: Disruption / Impact*
-**[5]** *T1595: Active Scanning*
-**[6]** *T1046: Network Service Discovery*
-**[7]** *T1592: Gather Victim Host Information*
-**[8]** *T1590: Gather Victim Network Information*
-**[9]** *T1596: Search Open Technical Databases*
-**[10]** *T1048: Exfiltration Over Alternative Protocol*
-**[11]** *T1040: Network Sniffing*
-**[12]** *T1135: Network Share Discovery*
-**[13]** *T1071: Application Layer Protocol*
-**[14]** *T1190: Exploit Public-Facing Application*
-**[15]** *TA0008: Lateral Movement*
-**[16]** *T1110: Brute Force*
-**[17]** *T1583: Acquire Infrastructure*
-**[18]** *T1059: Command and Scripting Interpreter*
-**[19]** *T1543: Create or Modify System Process*
-**[20]** *T1102: Web Services*
-**[21]** *T1095: Non-Application Layer Protocol*
-**[22]** *T0804: Block Reporting Message*
-**[23]** *T0836: Modify Parameter*
-**[24]** *T0830: Adversary-in-the-Middle*
-**[25]** *TA0106: Impair Process Control*
-**[26]** *TA0107: Inhibit Response Function*
-**[27]** *T1565: Data Manipulation*
-**[28]** *T1205: Traffic Signaling*
+* **[1]** *T1021: Remote Services Exploitation*
+* **[2]** *T1499: Endpoint Denial of Service*
+* **[3]** *T1498: Network Denial of Service*
+* **[4]** *TA0040: Disruption / Impact*
+* **[5]** *T1595: Active Scanning*
+* **[6]** *T1046: Network Service Discovery*
+* **[7]** *T1592: Gather Victim Host Information*
+* **[8]** *T1590: Gather Victim Network Information*
+* **[9]** *T1596: Search Open Technical Databases*
+* **[10]** *T1048: Exfiltration Over Alternative Protocol*
+* **[11]** *T1040: Network Sniffing*
+* **[12]** *T1135: Network Share Discovery*
+* **[13]** *T1071: Application Layer Protocol*
+* **[14]** *T1190: Exploit Public-Facing Application*
+* **[15]** *TA0008: Lateral Movement*
+* **[16]** *T1110: Brute Force*
+* **[17]** *T1583: Acquire Infrastructure*
+* **[18]** *T1059: Command and Scripting Interpreter*
+* **[19]** *T1543: Create or Modify System Process*
+* **[20]** *T1102: Web Services*
+* **[21]** *T1095: Non-Application Layer Protocol*
+* **[22]** *T0804: Block Reporting Message*
+* **[23]** *T0836: Modify Parameter*
+* **[24]** *T0830: Adversary-in-the-Middle*
+* **[25]** *TA0106: Impair Process Control*
+* **[26]** *TA0107: Inhibit Response Function*
+* **[27]** *T1565: Data Manipulation*
+* **[28]** *T1205: Traffic Signaling*
 ✱: Os autores não mencionam um número específico de ataques; o valor foi inferido pelas demonstrações descritas no trabalho.
 
 <details><summary>
