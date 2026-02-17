@@ -203,16 +203,16 @@ echo "http://$( ip route get 9.9.9.9 | awk '{print $7; exit}' ):8501"
 ```
 
 2. O retorno de contagem mínima de conteineres esperada (resultante do comando seguinte) seja **`Containeres OK`**:
-> [!TIP]
-> Caso o retorno do comando seja **`Containeres NOT OK`**, execute novamente o builder das imagens (estando na raiz do repositório):
-```
-cd docker && ./criar-imagens.sh
-```
 
 ```
 if [ $( docker images --format=table | grep -c 'sbrc26-' ) -gt 50 ]; then echo "Containeres OK"; else echo "Containeres NOT OK"; fi
 ```
 
+> [!TIP]
+> Caso o retorno do comando seja **`Containeres NOT OK`**, execute novamente o builder das imagens (estando na raiz do repositório):
+```
+cd docker && ./criar-imagens.sh
+```
 ---
 
 # Experimentos
