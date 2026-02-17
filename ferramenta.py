@@ -1,3 +1,4 @@
+import os
 import csv
 import ipaddress
 import json
@@ -1761,7 +1762,7 @@ def render_features_view() -> None:
     run_tsh = c2.checkbox("TShark", value=True)
     run_scp = c3.checkbox("Scapy", value=True)
 
-    overwrite = st.checkbox("Sobrescrever CSVs existentes (se houver)", value=False)
+    overwrite = st.checkbox("Sobrescrever CSVs existentes (se houver)", value=True)
 
     if st.button("Extrair features", type="primary"):
         results: Dict[str, Any] = {}
@@ -1778,7 +1779,9 @@ def render_features_view() -> None:
             if res.get("ok"):
                 st.success(f"{tool}: OK → {res.get('output')}")
             else:
-                st.error(f"{tool}: falhou")
+                st.warning("Este extrator pode ter falhado nesta captura devido ao arquivo .pcap potencialmente estar incompleto...")
+                if res.get("hint"):
+                    st.info(res["hint"])
                 if res.get("stderr"):
                     st.code(res["stderr"], language="text")
             if res.get("cmd"):
@@ -2004,58 +2007,132 @@ def get_servers_status() -> List[dict]:
 # -----------------------------
 # Captura tcpdump
 # -----------------------------
-def start_tcpdump_capture(pcap_path: Path, iface: str = "docker0") -> Dict[str, Any]:
-    """
-    Função para iniciar captura de tráfego
-
-    :param pcap_path: Caminho para o salvar o arquivo .pcap
-    :type pcap_path: Path
-    :param iface: Interface, fixado na "docker0" para fins da viabilidade do experimento
-    :type iface: str, optional
-    :return: Dicionário do caminho do arquivo e interface
-    :rtype: Dict[str, Any]
-    """
-    _ensure_dirs()
-    cmd = ["tcpdump", "-i", iface, "-w", str(pcap_path)]
+def _file_size_stable(path: Path, checks: int = 5, sleep_s: float = 0.10) -> bool:
     try:
-        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        last = path.stat().st_size
+    except Exception:
+        return False
+
+    stable = 0
+    for _ in range(checks):
+        time.sleep(sleep_s)
+        try:
+            cur = path.stat().st_size
+        except Exception:
+            return False
+        if cur == last:
+            stable += 1
+        else:
+            stable = 0
+            last = cur
+    return stable >= checks
+
+
+def _tshark_rewrite_pcap_if_needed(pcap_path: Path, tmp_dir: Path) -> Tuple[bool, str]:
+    p = subprocess.run(["tshark", "-r", str(pcap_path), "-q"], capture_output=True)
+    if p.returncode == 0:
+        return False, "pcap_ok"
+
+    cleaned = tmp_dir / f"clean-{pcap_path.name}"
+    p2 = subprocess.run(["tshark", "-r", str(pcap_path), "-w", str(cleaned), "-F", "pcap"], capture_output=True)
+    if p2.returncode == 0 and cleaned.exists() and cleaned.stat().st_size > 24:
+        bak = tmp_dir / f"bak-{pcap_path.name}"
+        try:
+            if bak.exists():
+                bak.unlink()
+        except Exception:
+            pass
+        try:
+            pcap_path.replace(bak)
+        except Exception:
+            pass
+        cleaned.replace(pcap_path)
+        return True, "pcap_rewritten_by_tshark"
+
+    return False, "pcap_invalid_and_rewrite_failed"
+
+def start_tcpdump_capture(pcap_path: Path, iface: str = "docker0") -> Dict[str, Any]:
+    _ensure_dirs()
+
+    cmd = ["tcpdump", "-i", iface, "-U", "-s", "0", "-w", str(pcap_path)]
+
+    try:
+        p = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            preexec_fn=os.setsid,
+        )
+
         time.sleep(0.25)
         if p.poll() is not None:
-            out = (p.stdout.read() if p.stdout else b"")
-            err = (p.stderr.read() if p.stderr else b"")
-            return {"ok": False, "cmd": cmd, "popen": None, "stderr": (err or b"").decode("utf-8", errors="replace").strip(), "stdout": (out or b"").decode("utf-8", errors="replace").strip()}
+            out, err = p.communicate(timeout=1)
+            return {
+                "ok": False,
+                "cmd": cmd,
+                "popen": None,
+                "stderr": (err or b"").decode("utf-8", errors="replace").strip(),
+                "stdout": (out or b"").decode("utf-8", errors="replace").strip(),
+            }
+
         return {"ok": True, "cmd": cmd, "popen": p, "stdout": "", "stderr": ""}
+
     except FileNotFoundError:
         return {"ok": False, "cmd": cmd, "popen": None, "stdout": "", "stderr": "tcpdump não encontrado no PATH."}
     except Exception as e:
         return {"ok": False, "cmd": cmd, "popen": None, "stdout": "", "stderr": str(e)}
 
-def stop_tcpdump_capture(p: subprocess.Popen, timeout: float = 3.0) -> Dict[str, Any]:
-    """
-    Função para interromper a captura
 
-    :param p: ID do subprocesso iniciado
-    :type p: subprocess.Popen
-    :param timeout: timeout, padrão é 3 segundos
-    :type timeout: float, optional
-    :return: Dicionário com o ID do subprocesso e timeout
-    :rtype: Dict[str, Any]
-    """
+def stop_tcpdump_capture(p: subprocess.Popen, pcap_path: Optional[Path] = None, timeout: float = 10.0) -> Dict[str, Any]:
     try:
         if p.poll() is None:
-            p.send_signal(signal.SIGINT)
+            # graceful: SIGINT
+            try:
+                os.killpg(p.pid, signal.SIGINT)
+            except Exception:
+                p.send_signal(signal.SIGINT)
+
             try:
                 p.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
-                p.terminate()
+                # SIGTERM
+                try:
+                    os.killpg(p.pid, signal.SIGTERM)
+                except Exception:
+                    p.terminate()
+
                 try:
                     p.wait(timeout=timeout)
                 except subprocess.TimeoutExpired:
-                    p.kill()
+                    # SIGKILL
+                    try:
+                        os.killpg(p.pid, signal.SIGKILL)
+                    except Exception:
+                        p.kill()
+                    p.wait(timeout=timeout)
 
-        out = (p.stdout.read() if p.stdout else b"")
-        err = (p.stderr.read() if p.stderr else b"")
-        return {"ok": True, "stdout": (out or b"").decode("utf-8", errors="replace").strip(), "stderr": (err or b"").decode("utf-8", errors="replace").strip()}
+        try:
+            out, err = p.communicate(timeout=1)
+        except Exception:
+            out = (p.stdout.read() if p.stdout else b"")
+            err = (p.stderr.read() if p.stderr else b"")
+
+        res = {
+            "ok": True,
+            "stdout": (out or b"").decode("utf-8", errors="replace").strip(),
+            "stderr": (err or b"").decode("utf-8", errors="replace").strip(),
+        }
+
+        if pcap_path and pcap_path.exists():
+            _file_size_stable(pcap_path, checks=5, sleep_s=0.10)
+
+            if tool_exists("tshark"):
+                did, msg = _tshark_rewrite_pcap_if_needed(pcap_path, TMP_DIR)
+                res["pcap_rewrite"] = msg
+                res["pcap_rewritten"] = did
+
+        return res
+
     except Exception as e:
         return {"ok": False, "stdout": "", "stderr": str(e)}
 
@@ -2228,7 +2305,7 @@ def run_attack_from_spec(
     attack_result["max_runtime_s"] = max_runtime_s
 
     if not attack_result.get("ok"):
-        stop_info = stop_tcpdump_capture(tcpdump_p)
+        stop_info = stop_tcpdump_capture(cap["popen"], pcap_path=pcap_path, timeout=3.0)
         attack_result["capture"] = {
             "enabled": True,
             "ok": True,
@@ -2247,7 +2324,7 @@ def run_attack_from_spec(
     else:
         wait_err = "container_id não retornado; não foi possível aguardar término."
 
-    stop_info = stop_tcpdump_capture(tcpdump_p)
+    stop_info = stop_tcpdump_capture(cap["popen"], pcap_path=pcap_path, timeout=3.0)
     attack_result["capture"] = {
         "enabled": True,
         "ok": True,

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+import re
 import json
 import shutil
 import subprocess
@@ -54,6 +55,50 @@ def _run(cmd: List[str]) -> Tuple[int, str, str]:
     stderr = (p.stderr or b"").decode("utf-8", errors="replace").strip()
     return p.returncode, stdout, stderr
 
+_TRUNC_PCAP_PATTERNS = (
+    "unpack requires a buffer of 16 bytes",
+    "dpkt.dpkt.needdata",
+    "got 15, 16 needed",
+    "needdata: got",
+)
+
+def looks_like_truncated_pcap(stderr: str) -> bool:
+    s = (stderr or "").lower()
+    return any(p in s for p in _TRUNC_PCAP_PATTERNS)
+
+def sanitize_pcap_for_tools(pcap_path: Path) -> Path:
+    """
+    Regrava o PCAP para descartar caudas truncadas/corrompidas.
+    Preferência: tshark; fallback: editcap.
+    Retorna o caminho do PCAP sanitizado (ou o original se não der).
+
+    :param pcap_path: Caminho do arquivo pcap
+    :type pcap_path: Path
+    :return: Caminho do pcap sanitizado
+    :rtype: Path
+    """
+    _ensure_dirs()
+    cleaned = TMP_DIR / f"clean-{stem_no_ext(pcap_path)}.pcap"
+
+    try:
+        if cleaned.exists() and cleaned.stat().st_mtime >= pcap_path.stat().st_mtime:
+            return cleaned
+    except Exception:
+        pass
+
+    if tool_exists("tshark"):
+        cmd = ["tshark", "-r", str(pcap_path), "-w", str(cleaned), "-F", "pcap"]
+        p = subprocess.run(cmd, capture_output=True)
+        if p.returncode == 0 and cleaned.exists() and cleaned.stat().st_size > 24:
+            return cleaned
+
+    if tool_exists("editcap"):
+        cmd = ["editcap", "-F", "pcap", str(pcap_path), str(cleaned)]
+        p = subprocess.run(cmd, capture_output=True)
+        if p.returncode == 0 and cleaned.exists() and cleaned.stat().st_size > 24:
+            return cleaned
+
+    return pcap_path
 
 def build_feature_paths(pcap_path: Path, features_dir: Path = FEATURES_DIR) -> Dict[str, Path]:
     """
@@ -94,29 +139,56 @@ def extract_with_ntlflowlyzer(pcap_path: Path, out_csv: Path) -> Dict[str, Any]:
 
     _ensure_dirs()
 
-    cfg = {
-        "pcap_file_address": str(pcap_path.resolve()),
-        "output_file_address": str(out_csv.resolve()),
-        "label": "Unknown",
-        "number_of_threads": 6,
-    }
+    def _run_ntl(pcap_in: Path) -> Tuple[int, str, str, Path]:
+        cfg = {
+            "pcap_file_address": str(pcap_in.resolve()),
+            "output_file_address": str(out_csv.resolve()),
+            "label": "Unknown",
+            "number_of_threads": 6,
+        }
 
-    cfg_path = TMP_DIR / f"ntlflowlyzer-{stem_no_ext(pcap_path)}.json"
-    cfg_path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+        cfg_path = TMP_DIR / f"ntlflowlyzer-{stem_no_ext(pcap_in)}.json"
+        cfg_path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
 
-    cmd = ["ntlflowlyzer", "-c", str(cfg_path)]
-    rc, out, err = _run(cmd)
+        cmd = ["ntlflowlyzer", "-c", str(cfg_path)]
+        rc, out, err = _run(cmd)
+        return rc, out, err, cfg_path
 
-    ok = (rc == 0) and out_csv.exists()  # pode ser vazio
+    # 1ª tentativa: PCAP original
+    rc, out, err, cfg_path = _run_ntl(pcap_path)
+
+    # Se parece PCAP truncado, tenta regravar e rodar de novo
+    used_pcap = pcap_path
+    retried = False
+    if rc != 0 and looks_like_truncated_pcap(err):
+        cleaned = sanitize_pcap_for_tools(pcap_path)
+        if cleaned != pcap_path:
+            retried = True
+            used_pcap = cleaned
+            rc, out, err, cfg_path = _run_ntl(cleaned)
+
+    ok = (rc == 0) and out_csv.exists()
+
+    user_hint = ""
+    if not ok and looks_like_truncated_pcap(err):
+        user_hint = (
+            "Falha no NTLFlowLyzer: a captura parece truncada/corrompida (PCAP incompleto). "
+            "Tente recapturar encerrando o tcpdump de forma graciosa (SIGINT/TERM) e aguardando o flush."
+        )
+        if retried:
+            user_hint += " Foi tentada uma sanitização automática do PCAP antes de reexecutar."
 
     return {
         "ok": ok,
         "returncode": rc,
         "stdout": out,
         "stderr": err,
-        "cmd": cmd,
+        "cmd": ["ntlflowlyzer", "-c", str(cfg_path)],
         "output": str(out_csv),
         "config": str(cfg_path),
+        "pcap_used": str(used_pcap),
+        "retried_with_sanitized_pcap": retried,
+        "hint": user_hint,
     }
 
 # TShark
